@@ -8,13 +8,13 @@ changes — it captures the non-obvious decisions and gotchas.
 All commands run from the repo root; a single `npm install` covers all
 workspaces.
 
-| Command             | What it does                                             |
-| ------------------- | -------------------------------------------------------- |
-| `npm install`       | Install all workspaces (npm workspaces monorepo)         |
-| `npm run dev`       | Backend (tsx watch, :4001) + frontend (Vite, :5173)      |
+| Command             | What it does                                              |
+| ------------------- | --------------------------------------------------------- |
+| `npm install`       | Install all workspaces (npm workspaces monorepo)          |
+| `npm run dev`       | Backend (tsx watch, :4001) + frontend (Vite, :5173)       |
 | `npm run typecheck` | `tsc --noEmit` in every workspace — the main quality gate |
-| `npm run build`     | Production build of the frontend (includes typecheck)    |
-| `npm run format`    | Prettier over the whole repo                             |
+| `npm run build`     | Production build of the frontend (includes typecheck)     |
+| `npm run format`    | Prettier over the whole repo                              |
 
 There is no test harness or eslint yet; keep `typecheck`, `build`, and
 `format:check` green.

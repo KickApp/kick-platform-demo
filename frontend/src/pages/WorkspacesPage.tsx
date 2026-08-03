@@ -88,7 +88,9 @@ export function WorkspacesPage() {
                                             <span className="badge">off</span>
                                         )}
                                     </td>
-                                    <td>{formatDateTime(workspace.createdAt)}</td>
+                                    <td>
+                                        {formatDateTime(workspace.createdAt)}
+                                    </td>
                                     <td className="mono">{workspace.id}</td>
                                 </tr>
                             ))}

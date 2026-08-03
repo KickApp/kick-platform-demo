@@ -56,7 +56,9 @@ export function WorkspaceDetailPage() {
                         <h2 className="page-title">
                             {workspaceQuery.data.name}
                         </h2>
-                        <p className="page-meta mono">{workspaceQuery.data.id}</p>
+                        <p className="page-meta mono">
+                            {workspaceQuery.data.id}
+                        </p>
                         <p className="page-meta">
                             Created{" "}
                             {formatDateTime(workspaceQuery.data.createdAt)}
@@ -90,9 +92,7 @@ export function WorkspaceDetailPage() {
             )}
 
             {entitiesQuery.data && entitiesQuery.data.data.length === 0 && (
-                <EmptyMessage>
-                    No entities in this workspace yet.
-                </EmptyMessage>
+                <EmptyMessage>No entities in this workspace yet.</EmptyMessage>
             )}
 
             {entitiesQuery.data && entitiesQuery.data.data.length > 0 && (

@@ -33,11 +33,11 @@ cp .env.example .env   # then set KICK_PLATFORM_API_TOKEN (skip if the env var i
 
 Configuration (env vars, or `.env` at the repo root):
 
-| Variable                  | Default                     | Purpose                                     |
-| ------------------------- | --------------------------- | ------------------------------------------- |
-| `KICK_PLATFORM_API_TOKEN` | — (required)                | `kick_org_...` organization access token    |
-| `KICK_API_BASE_URL`       | `https://use-dev.kick.co/api` | Kick API base (note the `/api` suffix)    |
-| `BACKEND_PORT`            | `4001`                      | Port for the BFF backend                    |
+| Variable                  | Default                       | Purpose                                  |
+| ------------------------- | ----------------------------- | ---------------------------------------- |
+| `KICK_PLATFORM_API_TOKEN` | — (required)                  | `kick_org_...` organization access token |
+| `KICK_API_BASE_URL`       | `https://use-dev.kick.co/api` | Kick API base (note the `/api` suffix)   |
+| `BACKEND_PORT`            | `4001`                        | Port for the BFF backend                 |
 
 ## Run
 

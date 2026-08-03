@@ -75,7 +75,9 @@ export const platformEntityResponseSchema = z.object({
     entity: platformEntitySchema,
 });
 
-export type PlatformEntityResponse = z.infer<typeof platformEntityResponseSchema>;
+export type PlatformEntityResponse = z.infer<
+    typeof platformEntityResponseSchema
+>;
 
 export const createPlatformEntityBodySchema = z.object({
     workspaceId: z.string().uuid(),

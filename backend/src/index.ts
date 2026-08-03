@@ -44,6 +44,8 @@ app.use(
 );
 
 app.listen(config.port, () => {
-    console.log(`Kick Platform demo BFF listening on http://localhost:${config.port}`);
+    console.log(
+        `Kick Platform demo BFF listening on http://localhost:${config.port}`,
+    );
     console.log(`Proxying Platform API requests to ${config.kickApiBaseUrl}`);
 });
