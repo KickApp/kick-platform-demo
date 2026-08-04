@@ -51,6 +51,11 @@ Single vendored ts-rest contract, used on both hops:
 - Handlers are pure pass-through. Declared upstream errors (400/401/404/429)
   are forwarded verbatim; anything undeclared becomes a 502 via
   `UpstreamError`.
+- The BFF runs with `responseValidation: true`, so response bodies are parsed
+  through the contract schemas before leaving the backend. Any Kick-internal
+  fields the upstream API may include are deliberately not modeled in
+  `shared/` and get stripped — keep it that way and do not surface
+  Kick-internal concepts in this demo.
 
 ## Source of truth for the API
 

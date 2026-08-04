@@ -20,9 +20,13 @@ app.get("/healthz", (_req, res) => {
     res.json({ status: "ok", upstream: config.kickApiBaseUrl });
 });
 
+// responseValidation parses outgoing bodies through the contract schemas,
+// which strips upstream fields the demo deliberately does not model
+// (e.g. Kick-internal flags on workspaces).
 const apiRouter = express.Router();
 createExpressEndpoints(platformContract, platformRouter, apiRouter, {
     logInitialization: false,
+    responseValidation: true,
 });
 app.use("/api", apiRouter);
 

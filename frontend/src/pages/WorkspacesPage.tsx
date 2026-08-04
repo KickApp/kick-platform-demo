@@ -63,7 +63,6 @@ export function WorkspacesPage() {
                         <thead>
                             <tr>
                                 <th>Name</th>
-                                <th>GL-first</th>
                                 <th>Created</th>
                                 <th>ID</th>
                             </tr>
@@ -78,15 +77,6 @@ export function WorkspacesPage() {
                                         >
                                             {workspace.name}
                                         </Link>
-                                    </td>
-                                    <td>
-                                        {workspace.glFirstEnabled ? (
-                                            <span className="badge badge-on">
-                                                enabled
-                                            </span>
-                                        ) : (
-                                            <span className="badge">off</span>
-                                        )}
                                     </td>
                                     <td>
                                         {formatDateTime(workspace.createdAt)}

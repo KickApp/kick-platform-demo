@@ -6,11 +6,14 @@ import { platformPaginationSchema } from "./pagination.schema";
  * (`common/schemas/platform/workspace.platform.schema.ts`) transforms internal
  * entity rows into this shape; here we describe the resulting JSON directly.
  * `createdAt` is an ISO-8601 datetime string.
+ *
+ * Any Kick-internal fields the upstream API may include are deliberately
+ * omitted; the BFF's response validation strips unmodeled fields before they
+ * reach the browser.
  */
 export const platformWorkspaceSchema = z.object({
     id: z.string().uuid(),
     name: z.string(),
-    glFirstEnabled: z.boolean(),
     createdAt: z.string(),
 });
 

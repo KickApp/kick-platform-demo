@@ -62,8 +62,6 @@ export function WorkspaceDetailPage() {
                         <p className="page-meta">
                             Created{" "}
                             {formatDateTime(workspaceQuery.data.createdAt)}
-                            {workspaceQuery.data.glFirstEnabled &&
-                                " · GL-first enabled"}
                         </p>
                     </div>
                     {!isCreating && (
