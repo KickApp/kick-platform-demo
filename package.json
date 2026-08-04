@@ -1,0 +1,27 @@
+{
+    "name": "kick-platform-demo",
+    "private": true,
+    "version": "0.1.0",
+    "description": "Demo app for the Kick Platform API: React frontend + Express BFF backend",
+    "workspaces": [
+        "shared",
+        "backend",
+        "frontend"
+    ],
+    "scripts": {
+        "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+        "dev:backend": "npm run dev -w backend",
+        "dev:frontend": "npm run dev -w frontend",
+        "build": "npm run build -w frontend",
+        "typecheck": "npm run typecheck --workspaces",
+        "format": "prettier --write .",
+        "format:check": "prettier --check ."
+    },
+    "devDependencies": {
+        "concurrently": "^9.1.2",
+        "prettier": "^3.5.3"
+    },
+    "engines": {
+        "node": ">=20"
+    }
+}
