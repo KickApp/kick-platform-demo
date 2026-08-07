@@ -93,6 +93,36 @@ body {
     font-size: 16px;
 }
 
+.page-header .section-title {
+    margin-top: 0;
+}
+
+.tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+}
+
+.tab {
+    padding: 8px 14px;
+    margin-bottom: -1px;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.tab:hover {
+    color: var(--text);
+}
+
+.tab-active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+}
+
 .back-link {
     display: inline-block;
     margin-bottom: 16px;
@@ -160,6 +190,40 @@ tbody tr:hover {
     color: var(--text-muted);
 }
 
+.amount {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.connection-card {
+    margin-bottom: 16px;
+    overflow-x: auto;
+}
+
+.connection-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.connection-title {
+    margin: 0;
+    font-size: 15px;
+}
+
 .button {
     padding: 8px 14px;
     border-radius: 8px;
@@ -193,6 +257,16 @@ tbody tr:hover {
     background: var(--bg);
 }
 
+.button-danger {
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--danger-text);
+}
+
+.button-danger:not(:disabled):hover {
+    background: var(--danger-bg);
+}
+
 .form-card {
     padding: 20px;
     margin-bottom: 20px;
@@ -214,6 +288,31 @@ tbody tr:hover {
     margin-bottom: 4px;
     font-size: 13px;
     font-weight: 600;
+}
+
+.field-hint {
+    display: block;
+    margin-top: 6px;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.field-hint code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.field-inline input,
+.field-inline select {
+    width: auto;
+    min-width: 170px;
 }
 
 input,

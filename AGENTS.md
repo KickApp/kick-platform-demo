@@ -39,7 +39,9 @@ There is no test harness or eslint yet; keep `typecheck`, `build`, and
 Single vendored ts-rest contract, used on both hops:
 
 - `shared/src/contracts/platform.contract.ts` mirrors the upstream contract
-  paths exactly (`/platform/v1/workspaces`, `/platform/v1/entities`).
+  paths exactly (`/platform/v1/workspaces`, `/platform/v1/entities`,
+  `/platform/v1/plaid-connections`,
+  `/platform/v1/workspaces/:workspaceId/transactions`).
 - The backend consumes it twice: `initClient` against Kick
   (`backend/src/kick-client.ts`) and `initServer`/`createExpressEndpoints`
   mounted under `/api` (`backend/src/router.ts`, `backend/src/index.ts`), so
@@ -48,9 +50,10 @@ Single vendored ts-rest contract, used on both hops:
   (`frontend/src/api/platform.ts`); the Vite dev server proxies `/api` to the
   backend (`frontend/vite.config.ts`, override target with `BACKEND_URL`, e.g.
   `http://host.docker.internal:4001` when running inside Docker).
-- Handlers are pure pass-through. Declared upstream errors (400/401/404/429)
-  are forwarded verbatim; anything undeclared becomes a 502 via
-  `UpstreamError`.
+- Handlers are pure pass-through. Declared upstream errors
+  (400/401/404/409/429) are forwarded verbatim; anything undeclared becomes a
+  502 via `UpstreamError`. Only the Plaid connection delete answers 409 today,
+  but the contract declares the same error superset on every route.
 - The BFF runs with `responseValidation: true`, so response bodies are parsed
   through the contract schemas before leaving the backend. Any Kick-internal
   fields the upstream API may include are deliberately not modeled in
@@ -70,10 +73,24 @@ schemas contain server-side `.transform`s from DB rows (e.g. entity `uuid` →
 wire `id`, `Date` → ISO string); here the post-transform JSON is modeled
 directly. When the upstream contract changes, update `shared/` to match.
 
-## Adding a new resource (e.g. transactions, chart of accounts)
+## Vendored resources and deliberate gaps
+
+Four resources are vendored: workspaces, entities, Plaid connections and
+transactions. Some upstream routes are intentionally left out:
+
+- Transactions: only `list`. The upstream `get` and `update` (`PATCH`) routes
+  are not vendored, so the demo never writes to a transaction.
+- Plaid: `create` takes a `processor_token` the partner obtained from its own
+  Plaid Link flow — there is no link/public token exchange on this surface, and
+  this demo has no Plaid credentials, so the create form asks for a pasted
+  token. Creation can therefore only be smoke-tested up to the upstream 400.
+- Chart of accounts, classes, journal entries and reports are not vendored at
+  all.
+
+## Adding a new resource (e.g. chart of accounts, journal entries)
 
 1. Look up the upstream contract and schemas in the kick repo
-   (`transactions.platform.contract.ts`, `chart-of-accounts.platform.contract.ts`).
+   (`chart-of-accounts.platform.contract.ts`, `journal-entries.platform.contract.ts`).
    Note that some contracts nest under a workspace path, e.g.
    `/platform/v1/workspaces/:workspaceId/transactions`.
 2. Vendor the wire-shape schemas into `shared/src/schemas/<resource>.schema.ts`
@@ -82,7 +99,11 @@ directly. When the upstream contract changes, update `shared/` to match.
 3. Add pass-through handlers to `backend/src/router.ts` (follow the existing
    pattern; `forwardUpstreamError` handles declared error statuses).
 4. Add fetch wrappers in `frontend/src/api/platform.ts` and build pages/
-   components following `WorkspacesPage` / `WorkspaceDetailPage`.
+   components following `WorkspacesPage` / `WorkspaceEntitiesPage`. A new
+   workspace-scoped resource becomes a tab: add it to `TABS` in
+   `frontend/src/pages/WorkspaceLayout.tsx`, register a nested route in
+   `frontend/src/App.tsx`, and read the id from `useWorkspaceContext()` rather
+   than `useParams()` so it arrives already narrowed to a string.
 5. Run `npm run typecheck` and smoke-test with the curl examples in README.md.
 
 ## Conventions

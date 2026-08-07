@@ -1,8 +1,12 @@
 # kick-platform-demo
 
 Demo app for the [Kick](https://kick.co) Platform API: a React frontend and a
-small Express BFF backend that list and create **workspaces** and **entities**
-through the external Platform API.
+small Express BFF backend covering **workspaces**, **entities**, **Plaid
+connections** and **transactions** through the external Platform API.
+
+Opening a workspace gives three tabs: manage its entities, manage the Plaid
+connections the partner created (list, connect, delete), and read the
+workspace's transactions across every entity.
 
 ## How it works
 
@@ -75,19 +79,54 @@ curl -s "http://localhost:4001/api/platform/v1/entities?workspaceId=<uuid>"
 curl -s -X POST "http://localhost:4001/api/platform/v1/entities" \
   -H "Content-Type: application/json" \
   -d '{"workspaceId": "<uuid>", "name": "Acme LLC", "legalType": "smllc", "bookkeepingStartDate": "2026-01-01"}'
+
+# List the Plaid connections of a workspace (optionally narrowed to entities)
+curl -s "http://localhost:4001/api/platform/v1/plaid-connections?workspaceId=<uuid>&entityIds=<uuid>"
+
+# Create a Plaid connection from a processor token
+curl -s -X POST "http://localhost:4001/api/platform/v1/plaid-connections" \
+  -H "Content-Type: application/json" \
+  -d '{"entityId": "<uuid>", "processorToken": "processor-sandbox-<identifier>"}'
+
+# Delete a Plaid connection (409 when its account carries manual journal entries)
+curl -s -X DELETE "http://localhost:4001/api/platform/v1/plaid-connections/<uuid>"
+
+# List transactions of a workspace within an inclusive date range
+curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions?startDate=2026-01-01&endDate=2026-01-31"
 ```
 
 The same paths work directly against the Kick API — replace the host with
 `https://use-dev.kick.co/api` and add
 `-H "Authorization: Bearer $KICK_PLATFORM_API_TOKEN"`.
 
+## Plaid connections
+
+The Platform API has no link-token or public-token exchange: the partner runs
+Plaid Link under its own Plaid credentials and hands Kick the resulting
+`processor_token`. This demo has no Plaid credentials of its own, so the
+"New connection" form asks for a `processor-<environment>-<identifier>` token
+you already obtained. The token must point at exactly one USD credit,
+depository or loan account, and that account is created already assigned to the
+entity you pick.
+
+Deleting a connection also deletes its accounts and their transactions; a
+connection whose account carries manual journal entries answers `409`, which
+the UI surfaces verbatim.
+
+## Transactions
+
+Transactions are read-only here. The upstream contract also exposes
+`GET`/`PATCH` for a single transaction; neither is vendored, so the demo cannot
+recategorize or edit anything.
+
 ## Project layout
 
 ```
 shared/    Vendored Platform API contract + Zod schemas (ts-rest), used by both sides
 backend/   Express BFF: authenticates to Kick, passes requests/errors through
-frontend/  React app: workspaces list/create, per-workspace entities list/create
+frontend/  React app: workspaces list/create, then per-workspace entities,
+           Plaid connections and transactions tabs
 ```
 
 See [AGENTS.md](AGENTS.md) for a guide aimed at coding agents extending this
-project (e.g. adding the transactions or chart-of-accounts resources).
+project (e.g. adding the chart-of-accounts or journal-entries resources).

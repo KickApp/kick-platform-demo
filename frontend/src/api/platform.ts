@@ -3,6 +3,7 @@ import {
     errorMessageSchema,
     platformContract,
     type CreatePlatformEntityBody,
+    type CreatePlatformPlaidConnectionBody,
     type CreatePlatformWorkspaceBody,
 } from "@kick-demo/shared";
 
@@ -72,6 +73,57 @@ export async function createEntity(body: CreatePlatformEntityBody) {
     const result = await api.entities.create({ body });
     if (result.status === 201) {
         return result.body.entity;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchPlaidConnections(query: {
+    workspaceId: string;
+    entityIds?: string[];
+    limit: number;
+    offset: number;
+}) {
+    const result = await api.plaidConnections.list({ query });
+    if (result.status === 200) {
+        return result.body;
+    }
+    throw toApiError(result);
+}
+
+export async function createPlaidConnection(
+    body: CreatePlatformPlaidConnectionBody,
+) {
+    const result = await api.plaidConnections.create({ body });
+    if (result.status === 201) {
+        return result.body;
+    }
+    throw toApiError(result);
+}
+
+export async function deletePlaidConnection(connectionId: string) {
+    const result = await api.plaidConnections.delete({
+        params: { connectionId },
+    });
+    if (result.status === 200) {
+        return;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchTransactions(query: {
+    workspaceId: string;
+    startDate?: string;
+    endDate?: string;
+    limit: number;
+    offset: number;
+}) {
+    const { workspaceId, ...rest } = query;
+    const result = await api.transactions.list({
+        params: { workspaceId },
+        query: rest,
+    });
+    if (result.status === 200) {
+        return result.body;
     }
     throw toApiError(result);
 }
