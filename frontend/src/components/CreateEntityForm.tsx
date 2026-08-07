@@ -19,8 +19,9 @@ export function CreateEntityForm({
     const queryClient = useQueryClient();
     const [name, setName] = useState("");
     const [legalType, setLegalType] = useState<EntityLegalType>("smllc");
-    const [bookkeepingStartDate, setBookkeepingStartDate] =
-        useState(previousYearStartIsoDate());
+    const [bookkeepingStartDate, setBookkeepingStartDate] = useState(
+        previousYearStartIsoDate(),
+    );
 
     const mutation = useMutation({
         mutationFn: createEntity,

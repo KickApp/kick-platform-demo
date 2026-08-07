@@ -205,6 +205,98 @@ tbody tr:hover {
     font-size: 12px;
 }
 
+.report-section-row td {
+    background: var(--bg);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+.report-line-name {
+    padding-left: 32px;
+}
+
+.report-total-row td {
+    font-weight: 600;
+}
+
+.summary-card {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.summary-label {
+    color: var(--text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.summary-value {
+    font-size: 17px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.cell-editable {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.cell-button {
+    padding: 2px 6px;
+    margin: -2px -6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.cell-button:not(:disabled):hover {
+    border-color: var(--border);
+    background: var(--bg);
+}
+
+.cell-button:disabled {
+    cursor: default;
+}
+
+.cell-placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.cell-pending {
+    color: var(--text-muted);
+}
+
+.cell-error {
+    max-width: 260px;
+    color: var(--danger-text);
+    font-size: 12px;
+    white-space: normal;
+}
+
+.cell-editor select {
+    min-width: 240px;
+}
+
 .connection-card {
     margin-bottom: 16px;
     overflow-x: auto;

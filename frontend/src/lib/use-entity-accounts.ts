@@ -31,10 +31,6 @@ export function useEntityAccounts(entityIds: string[]) {
         error: queries.find((query) => query.error !== null)?.error ?? null,
         accountsFor: (entityId: string) =>
             accountsByEntityId.get(entityId) ?? [],
-        findAccount: (entityId: string, accountId: string) =>
-            accountsByEntityId
-                .get(entityId)
-                ?.find((account) => account.id === accountId) ?? null,
     };
 }
 
