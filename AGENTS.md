@@ -19,6 +19,12 @@ workspaces.
 There is no test harness or eslint yet; keep `typecheck`, `build`, and
 `format:check` green.
 
+## CI
+
+`.github/workflows/typecheck.yml` runs `npm ci && npm run typecheck` on every
+pull request and on pushes to `main`. It is the only automated gate, so a PR
+that does not typecheck will fail CI.
+
 ## Environment
 
 - `KICK_PLATFORM_API_TOKEN` (required): a `kick_org_...` organization access
