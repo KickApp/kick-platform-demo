@@ -10,6 +10,15 @@ import { platformRouter } from "./router";
 const app = express();
 app.use(express.json());
 
+// Express generates weak ETags for res.json bodies, which turns repeat reads
+// into 304s served from the browser cache. This demo always shows live data
+// from the Platform API, so opt out of caching entirely.
+app.set("etag", false);
+app.use((_req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    next();
+});
+
 app.use((req, res, next) => {
     res.on("finish", () => {
         console.log(`${req.method} ${req.originalUrl} -> ${res.statusCode}`);
