@@ -52,7 +52,9 @@ plus a small demo-only contract for the Plaid Link flow:
 - `shared/src/contracts/platform.contract.ts` mirrors the upstream contract
   paths exactly (`/platform/v1/workspaces`, `/platform/v1/entities`,
   `/platform/v1/plaid-connections`,
-  `/platform/v1/workspaces/:workspaceId/transactions`).
+  `/platform/v1/workspaces/:workspaceId/transactions`,
+  `/platform/v1/entities/:entityId/chart-of-accounts`,
+  `/platform/v1/entities/:entityId/reports/*`).
 - The backend consumes it twice: `initClient` against Kick
   (`backend/src/kick-client.ts`) and `initServer`/`createExpressEndpoints`
   mounted under `/api` (`backend/src/router.ts`, `backend/src/index.ts`), so
@@ -63,8 +65,10 @@ plus a small demo-only contract for the Plaid Link flow:
   `http://host.docker.internal:4001` when running inside Docker).
 - Handlers are pure pass-through. Declared upstream errors
   (400/401/404/409/429) are forwarded verbatim; anything undeclared becomes a
-  502 via `UpstreamError`. Only the Plaid connection delete answers 409 today,
-  but the contract declares the same error superset on every route.
+  502 via `UpstreamError`. Deleting a Plaid connection and updating a
+  transaction inside a locked bookkeeping period are the only routes that
+  answer 409 today, but the contract declares the same error superset on every
+  route.
 - The BFF runs with `responseValidation: true`, so response bodies are parsed
   through the contract schemas before leaving the backend. Any Kick-internal
   fields the upstream API may include are deliberately not modeled in
@@ -110,29 +114,53 @@ schemas contain server-side `.transform`s from DB rows (e.g. entity `uuid` →
 wire `id`, `Date` → ISO string); here the post-transform JSON is modeled
 directly. When the upstream contract changes, update `shared/` to match.
 
+Enums are vendored as `as const` arrays fed to `z.enum`, which means a value
+Kick adds upstream fails the BFF's response validation until it is copied here.
+That is the trade for catching drift; the enums to watch are the account types
+and classes in `chart-of-accounts.schema.ts` and the report section enums in
+`report.schema.ts`.
+
 ## Vendored resources and deliberate gaps
 
-Four resources are vendored: workspaces, entities, Plaid connections and
-transactions. Some upstream routes are intentionally left out:
+Six resources are vendored: workspaces, entities, Plaid connections,
+transactions, the chart of accounts and reports. Some upstream routes are
+intentionally left out:
 
-- Transactions: only `list`. The upstream `get` and `update` (`PATCH`) routes
-  are not vendored, so the demo never writes to a transaction.
+- Transactions: `list` and `update`. The upstream `get` is not vendored — the
+  listing already carries the whole row.
+- Chart of accounts: `list` only. The demo reads the chart to show and pick
+  account names and never edits it, so `get`, `create`, `bulkCreate`,
+  `update`, `disable`, `enable` and `delete` are all left out.
 - Plaid: the Platform API's `create` takes a `processor_token` and has no
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is
   kept for parity and curl use.
-- Chart of accounts, classes, journal entries and reports are not vendored at
+- Classes, journal entries, ledgers and transaction rules are not vendored at
   all.
 
-## Adding a new resource (e.g. chart of accounts, journal entries)
+## Cash basis only
+
+The demo keeps cash-basis books. `WorkspaceReportsPage` sends
+`ledgerBasis: "cash"` on every report and offers no basis control, and the
+transactions tab reads and writes `accountId` only. `accrualAccountId` and the
+`accruals` ledger basis stay in `shared/` so the mirror matches upstream, but
+nothing in the UI touches them — do not add an accrual surface without deciding
+what the demo should say about two sets of books.
+
+## Adding a new resource (e.g. classes, journal entries)
 
 1. Look up the upstream contract and schemas in the kick repo
-   (`chart-of-accounts.platform.contract.ts`, `journal-entries.platform.contract.ts`).
-   Note that some contracts nest under a workspace path, e.g.
-   `/platform/v1/workspaces/:workspaceId/transactions`.
+   (`classes.platform.contract.ts`, `journal-entries.platform.contract.ts`).
+   Note that contracts nest under either a workspace or an entity path, e.g.
+   `/platform/v1/workspaces/:workspaceId/transactions` versus
+   `/platform/v1/entities/:entityId/chart-of-accounts`. An entity-scoped
+   resource shown in the workspace view needs an entity picker, the way
+   `WorkspaceReportsPage` does it.
 2. Vendor the wire-shape schemas into `shared/src/schemas/<resource>.schema.ts`
    and add a router to `shared/src/contracts/platform.contract.ts`; re-export
-   from `shared/src/index.ts`.
+   from `shared/src/index.ts`. Leave upstream `.refine()` calls off query
+   schemas — they produce a `ZodEffects` rather than a `ZodObject`, and Kick
+   enforces the rule anyway (see `platformReportQuerySchema`).
 3. Add pass-through handlers to `backend/src/router.ts` (follow the existing
    pattern; `forwardUpstreamError` handles declared error statuses).
 4. Add fetch wrappers in `frontend/src/api/platform.ts` and build pages/

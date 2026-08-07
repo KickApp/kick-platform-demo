@@ -2,11 +2,13 @@
 
 Demo app for the [Kick](https://kick.co) Platform API: a React frontend and a
 small Express BFF backend covering **workspaces**, **entities**, **Plaid
-connections** and **transactions** through the external Platform API.
+connections**, **transactions**, the **chart of accounts** and **reports**
+through the external Platform API.
 
-Opening a workspace gives three tabs: manage its entities, manage the Plaid
-connections the partner created (list, connect through Plaid Link, delete), and
-read the workspace's transactions across every entity.
+Opening a workspace gives four tabs: manage its entities, manage the Plaid
+connections the partner created (list, connect through Plaid Link, delete),
+read the workspace's transactions across every entity and recategorize them,
+and read an entity's accounting reports.
 
 ## How it works
 
@@ -104,6 +106,20 @@ curl -s -X DELETE "http://localhost:4001/api/platform/v1/plaid-connections/<uuid
 
 # List transactions of a workspace within an inclusive date range
 curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions?startDate=2026-01-01&endDate=2026-01-31"
+
+# Categorize a transaction (null clears it; 409 inside a locked bookkeeping period)
+curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions/<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"accountId": "<uuid>"}'
+
+# List an entity's chart of accounts (archived accounts included, flagged isDisabled)
+curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts?limit=100"
+
+# Reports for an entity: profit-and-loss, balance-sheet, cash-flow, trial-balance
+curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/reports/profit-and-loss?startDate=2026-01-01&endDate=2026-12-31&ledgerBasis=cash&groupBy=month"
+
+# The general ledger lists individual postings, so it takes no groupBy
+curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/reports/general-ledger?startDate=2026-01-01&endDate=2026-12-31&ledgerBasis=cash"
 ```
 
 The same paths work directly against the Kick API — replace the host with
@@ -149,11 +165,34 @@ Deleting a connection also deletes its accounts and their transactions; a
 connection whose account carries manual journal entries answers `409`, which
 the UI surfaces verbatim.
 
-## Transactions
+## Transactions and the chart of accounts
 
-Transactions are read-only here. The upstream contract also exposes
-`GET`/`PATCH` for a single transaction; neither is vendored, so the demo cannot
-recategorize or edit anything.
+A transaction's categorization is a field on the transaction itself:
+`accountId` points at an account of its entity's chart of accounts. The
+Account column on the transactions tab shows it and turns into a picker on
+click; choosing an account (or "Uncategorized") sends
+`PATCH .../transactions/:transactionId` with only `accountId`, so nothing else
+on the transaction moves. Inside a locked bookkeeping period the API answers
+`409` and the message is shown next to the cell.
+
+A chart of accounts belongs to one entity while the transactions listing spans
+the whole workspace, so the tab loads the chart of each entity appearing on the
+current page. Archived accounts are hidden from the picker unless one is the
+current assignment.
+
+There is also an accrual-basis `accrualAccountId`. It is part of the vendored
+schemas because `shared/` mirrors the upstream contract, but this demo keeps
+cash-basis books only and no screen reads or writes it.
+
+## Reports
+
+The Reports tab covers all five Platform API reports — profit and loss, balance
+sheet, cash flow, trial balance and general ledger. Reports are scoped to a
+single entity rather than a workspace, so the tab picks one. The date range is
+inclusive, and `groupBy` splits it into weekly/monthly/quarterly/yearly columns
+without changing the response shape; the general ledger lists individual
+postings instead of period aggregates and so offers no grouping. Everything is
+requested on the cash basis.
 
 ## Project layout
 
@@ -161,8 +200,8 @@ recategorize or edit anything.
 shared/    Vendored Platform API contract + Zod schemas (ts-rest), used by both sides
 backend/   Express BFF: authenticates to Kick, passes requests/errors through
 frontend/  React app: workspaces list/create, then per-workspace entities,
-           Plaid connections and transactions tabs
+           Plaid connections, transactions and reports tabs
 ```
 
 See [AGENTS.md](AGENTS.md) for a guide aimed at coding agents extending this
-project (e.g. adding the chart-of-accounts or journal-entries resources).
+project (e.g. adding the classes or journal-entries resources).
