@@ -2,9 +2,8 @@ import { z } from "zod";
 import { platformPaginationSchema } from "./pagination.schema";
 
 /**
- * Wire shape of a Platform API workspace. The kick repo's server-side schema
- * (`common/schemas/platform/workspace.platform.schema.ts`) transforms internal
- * entity rows into this shape; here we describe the resulting JSON directly.
+ * Wire shape of a Platform API workspace, i.e. the JSON the endpoint actually
+ * returns rather than the server's internal representation of it.
  * `createdAt` is an ISO-8601 datetime string.
  *
  * Any Kick-internal fields the upstream API may include are deliberately

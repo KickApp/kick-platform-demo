@@ -99,16 +99,12 @@ status code 400".
 
 ## Source of truth for the API
 
-The authoritative contracts live in the main kick repo:
+The Platform API itself is the source of truth; `shared/` is a hand-maintained
+mirror of it and can drift.
 
-- `common/contracts/platform/*.platform.contract.ts`
-- `common/schemas/platform/*.platform.schema.ts`
-
-The copies in `shared/` are deliberately standalone (no `@common/...`
-imports) and describe the **wire** shapes: the upstream repo's response
-schemas contain server-side `.transform`s from DB rows (e.g. entity `uuid` →
-wire `id`, `Date` → ISO string); here the post-transform JSON is modeled
-directly. When the upstream contract changes, update `shared/` to match.
+The schemas here describe the **wire** shapes — the JSON that actually crosses
+the network, e.g. an entity's `id` as a string and timestamps as ISO strings.
+When the Platform API changes, update `shared/` to match.
 
 ## Vendored resources and deliberate gaps
 
@@ -126,9 +122,8 @@ transactions. Some upstream routes are intentionally left out:
 
 ## Adding a new resource (e.g. chart of accounts, journal entries)
 
-1. Look up the upstream contract and schemas in the kick repo
-   (`chart-of-accounts.platform.contract.ts`, `journal-entries.platform.contract.ts`).
-   Note that some contracts nest under a workspace path, e.g.
+1. Look up the resource's routes and payloads in the Platform API docs. Note
+   that some resources nest under a workspace path, e.g.
    `/platform/v1/workspaces/:workspaceId/transactions`.
 2. Vendor the wire-shape schemas into `shared/src/schemas/<resource>.schema.ts`
    and add a router to `shared/src/contracts/platform.contract.ts`; re-export

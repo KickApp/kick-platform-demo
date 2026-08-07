@@ -1,8 +1,7 @@
 import { z } from "zod";
 
 /**
- * Offset/limit paging shared by Platform API list endpoints. Vendored from
- * `common/schemas/platform/pagination.platform.schema.ts` in the kick repo.
+ * Offset/limit paging shared by Platform API list endpoints.
  */
 export const PLATFORM_PAGE_LIMIT_DEFAULT = 100;
 export const PLATFORM_PAGE_LIMIT_MAX = 100;

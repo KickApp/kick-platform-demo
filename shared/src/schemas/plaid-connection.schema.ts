@@ -5,9 +5,7 @@ import {
 } from "./pagination.schema";
 
 /**
- * Financial account types the Platform API reports. Mirrors
- * `FinancialAccountType` from the kick repo
- * (`common/types/financialAccount.ts`).
+ * Financial account types the Platform API reports.
  */
 export const FINANCIAL_ACCOUNT_TYPES = [
     "checking",
@@ -49,10 +47,8 @@ export const PROCESSOR_TOKEN_PATTERN =
     /^processor-(sandbox|development|production)-[0-9a-zA-Z]+(-[0-9a-zA-Z]+)*$/;
 
 /**
- * Wire shape of a Platform API Plaid connection, vendored from
- * `common/schemas/platform/plaid-connection.platform.schema.ts` in the kick
- * repo. `createdAt` is an ISO-8601 datetime string. The processor token is
- * never echoed back.
+ * Wire shape of a Platform API Plaid connection. `createdAt` is an ISO-8601
+ * datetime string. The processor token is never echoed back.
  */
 export const platformPlaidConnectionSchema = z.object({
     id: z.string().uuid(),
