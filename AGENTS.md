@@ -33,13 +33,20 @@ There is no test harness or eslint yet; keep `typecheck`, `build`, and
   with status 200.
 - Auth is `Authorization: Bearer <token>`. Only the backend ever holds the
   token; never expose it to frontend code.
+- `PLAID_CLIENT_ID` / `PLAID_SECRET` (optional, plus `PLAID_ENV` and
+  `PLAID_PRODUCTS`): the demo's own Plaid credentials for the Link flow. They
+  are optional by design — `config.plaid` is `null` without them and only the
+  Link flow switches off, so never make them `requireEnv`.
 
 ## Architecture
 
-Single vendored ts-rest contract, used on both hops:
+One vendored ts-rest contract mirroring the Platform API, used on both hops,
+plus a small demo-only contract for the Plaid Link flow:
 
 - `shared/src/contracts/platform.contract.ts` mirrors the upstream contract
-  paths exactly (`/platform/v1/workspaces`, `/platform/v1/entities`).
+  paths exactly (`/platform/v1/workspaces`, `/platform/v1/entities`,
+  `/platform/v1/plaid-connections`,
+  `/platform/v1/workspaces/:workspaceId/transactions`).
 - The backend consumes it twice: `initClient` against Kick
   (`backend/src/kick-client.ts`) and `initServer`/`createExpressEndpoints`
   mounted under `/api` (`backend/src/router.ts`, `backend/src/index.ts`), so
@@ -48,14 +55,41 @@ Single vendored ts-rest contract, used on both hops:
   (`frontend/src/api/platform.ts`); the Vite dev server proxies `/api` to the
   backend (`frontend/vite.config.ts`, override target with `BACKEND_URL`, e.g.
   `http://host.docker.internal:4001` when running inside Docker).
-- Handlers are pure pass-through. Declared upstream errors (400/401/404/429)
-  are forwarded verbatim; anything undeclared becomes a 502 via
-  `UpstreamError`.
+- Handlers are pure pass-through. Declared upstream errors
+  (400/401/404/409/429) are forwarded verbatim; anything undeclared becomes a
+  502 via `UpstreamError`. Only the Plaid connection delete answers 409 today,
+  but the contract declares the same error superset on every route.
 - The BFF runs with `responseValidation: true`, so response bodies are parsed
   through the contract schemas before leaving the backend. Any Kick-internal
   fields the upstream API may include are deliberately not modeled in
   `shared/` and get stripped — keep it that way and do not surface
   Kick-internal concepts in this demo.
+- `shared/src/contracts/plaid-link.contract.ts` is the one contract that is
+  **not** a mirror: `/demo/v1/plaid-link/{config,link-token,connections}`
+  exist only here, implemented in `backend/src/plaid-link-router.ts`. Keep
+  demo-only routes under `/demo/` and out of `platform.contract.ts` so the
+  mirror stays a mirror.
+
+## The Plaid Link flow
+
+Minting a Plaid `processor_token` is the partner's job, not Kick's, so the demo
+owns the whole flow:
+
+1. Browser asks the BFF for a link token (`/link/token/create`, filtered to USD
+   depository/credit/loan accounts).
+2. Plaid Link runs in the browser and returns a public token.
+3. The BFF exchanges it (`/item/public_token/exchange`), resolves the account
+   id (from Link metadata, or by reading the Item when Account Select is off),
+   and calls `/processor/token/create` with `processor: "kick"` — `kick` is a
+   registered Plaid processor.
+4. The BFF posts only the processor token to
+   `POST /platform/v1/plaid-connections`.
+
+Invariants worth preserving: the Plaid access token never leaves the backend,
+the browser only ever holds a link token, and Kick only ever receives a
+processor token. Plaid SDK rejections are unwrapped by `toPlaidRequestError`
+into a readable 400 — without it the caller only sees "Request failed with
+status code 400".
 
 ## Source of truth for the API
 
@@ -70,10 +104,24 @@ schemas contain server-side `.transform`s from DB rows (e.g. entity `uuid` →
 wire `id`, `Date` → ISO string); here the post-transform JSON is modeled
 directly. When the upstream contract changes, update `shared/` to match.
 
-## Adding a new resource (e.g. transactions, chart of accounts)
+## Vendored resources and deliberate gaps
+
+Four resources are vendored: workspaces, entities, Plaid connections and
+transactions. Some upstream routes are intentionally left out:
+
+- Transactions: only `list`. The upstream `get` and `update` (`PATCH`) routes
+  are not vendored, so the demo never writes to a transaction.
+- Plaid: the Platform API's `create` takes a `processor_token` and has no
+  link/public token exchange. The UI goes through the demo's own Plaid Link
+  routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is
+  kept for parity and curl use.
+- Chart of accounts, classes, journal entries and reports are not vendored at
+  all.
+
+## Adding a new resource (e.g. chart of accounts, journal entries)
 
 1. Look up the upstream contract and schemas in the kick repo
-   (`transactions.platform.contract.ts`, `chart-of-accounts.platform.contract.ts`).
+   (`chart-of-accounts.platform.contract.ts`, `journal-entries.platform.contract.ts`).
    Note that some contracts nest under a workspace path, e.g.
    `/platform/v1/workspaces/:workspaceId/transactions`.
 2. Vendor the wire-shape schemas into `shared/src/schemas/<resource>.schema.ts`
@@ -82,7 +130,11 @@ directly. When the upstream contract changes, update `shared/` to match.
 3. Add pass-through handlers to `backend/src/router.ts` (follow the existing
    pattern; `forwardUpstreamError` handles declared error statuses).
 4. Add fetch wrappers in `frontend/src/api/platform.ts` and build pages/
-   components following `WorkspacesPage` / `WorkspaceDetailPage`.
+   components following `WorkspacesPage` / `WorkspaceEntitiesPage`. A new
+   workspace-scoped resource becomes a tab: add it to `TABS` in
+   `frontend/src/pages/WorkspaceLayout.tsx`, register a nested route in
+   `frontend/src/App.tsx`, and read the id from `useWorkspaceContext()` rather
+   than `useParams()` so it arrives already narrowed to a string.
 5. Run `npm run typecheck` and smoke-test with the curl examples in README.md.
 
 ## Conventions

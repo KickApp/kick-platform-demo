@@ -1,8 +1,12 @@
 # kick-platform-demo
 
 Demo app for the [Kick](https://kick.co) Platform API: a React frontend and a
-small Express BFF backend that list and create **workspaces** and **entities**
-through the external Platform API.
+small Express BFF backend covering **workspaces**, **entities**, **Plaid
+connections** and **transactions** through the external Platform API.
+
+Opening a workspace gives three tabs: manage its entities, manage the Plaid
+connections the partner created (list, connect through Plaid Link, delete), and
+read the workspace's transactions across every entity.
 
 ## How it works
 
@@ -33,11 +37,18 @@ cp .env.example .env   # then set KICK_PLATFORM_API_TOKEN (skip if the env var i
 
 Configuration (env vars, or `.env` at the repo root):
 
-| Variable                  | Default                       | Purpose                                  |
-| ------------------------- | ----------------------------- | ---------------------------------------- |
-| `KICK_PLATFORM_API_TOKEN` | — (required)                  | `kick_org_...` organization access token |
-| `KICK_API_BASE_URL`       | `https://use-dev.kick.co/api` | Kick API base (note the `/api` suffix)   |
-| `BACKEND_PORT`            | `4001`                        | Port for the BFF backend                 |
+| Variable                  | Default                       | Purpose                                       |
+| ------------------------- | ----------------------------- | --------------------------------------------- |
+| `KICK_PLATFORM_API_TOKEN` | — (required)                  | `kick_org_...` organization access token      |
+| `KICK_API_BASE_URL`       | `https://use-dev.kick.co/api` | Kick API base (note the `/api` suffix)        |
+| `BACKEND_PORT`            | `4001`                        | Port for the BFF backend                      |
+| `PLAID_CLIENT_ID`         | — (optional)                  | Your Plaid client id, for the Plaid Link flow |
+| `PLAID_SECRET`            | — (optional)                  | Your Plaid secret for `PLAID_ENV`             |
+| `PLAID_ENV`               | `sandbox`                     | `sandbox` or `production`                     |
+| `PLAID_PRODUCTS`          | `transactions,auth`           | Products enabled on the linked Item           |
+
+Without the `PLAID_*` variables everything still works; only "New connection"
+on the Plaid connections tab is disabled, with a message saying so.
 
 ## Run
 
@@ -75,19 +86,80 @@ curl -s "http://localhost:4001/api/platform/v1/entities?workspaceId=<uuid>"
 curl -s -X POST "http://localhost:4001/api/platform/v1/entities" \
   -H "Content-Type: application/json" \
   -d '{"workspaceId": "<uuid>", "name": "Acme LLC", "legalType": "smllc", "bookkeepingStartDate": "2026-01-01"}'
+
+# List the Plaid connections of a workspace (optionally narrowed to entities)
+curl -s "http://localhost:4001/api/platform/v1/plaid-connections?workspaceId=<uuid>&entityIds=<uuid>"
+
+# Create a Plaid connection from a processor token you already have
+# (the UI goes through Plaid Link instead — see "Plaid connections" below)
+curl -s -X POST "http://localhost:4001/api/platform/v1/plaid-connections" \
+  -H "Content-Type: application/json" \
+  -d '{"entityId": "<uuid>", "processorToken": "processor-sandbox-<identifier>"}'
+
+# Delete a Plaid connection (409 when its account carries manual journal entries)
+curl -s -X DELETE "http://localhost:4001/api/platform/v1/plaid-connections/<uuid>"
+
+# List transactions of a workspace within an inclusive date range
+curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions?startDate=2026-01-01&endDate=2026-01-31"
 ```
 
 The same paths work directly against the Kick API — replace the host with
 `https://use-dev.kick.co/api` and add
 `-H "Authorization: Bearer $KICK_PLATFORM_API_TOKEN"`.
 
+## Plaid connections
+
+The Platform API has no link-token or public-token exchange: minting the
+`processor_token` is the partner's job. This demo therefore runs the whole
+Plaid Link flow itself, and the browser never sees anything but a link token:
+
+```
+Browser                     Demo BFF                    Plaid            Kick
+  │  POST /demo/v1/plaid-link/link-token                   │               │
+  │ ─────────────────────────▶ /link/token/create ────────▶│               │
+  │ ◀───────── link_token ─────────────────────────────────│               │
+  │  (Plaid Link opens, user picks an account)             │               │
+  │  POST /demo/v1/plaid-link/connections                  │               │
+  │      { entityId, publicToken, accountId }              │               │
+  │ ─────────────────────────▶ /item/public_token/exchange▶│               │
+  │                            /processor/token/create ───▶│               │
+  │                              (processor: "kick")       │               │
+  │                            POST /platform/v1/plaid-connections ───────▶│
+  │ ◀───────── { connection, account } ────────────────────────────────────│
+```
+
+`kick` is a registered Plaid processor, so `/processor/token/create` mints a
+token Kick can read with its own processor-partner credentials. The Plaid
+access token stays inside the demo backend: Kick only ever receives the
+processor token, and the browser only ever receives a link token.
+
+Link is filtered to USD credit, depository and loan accounts because Kick
+books nothing else, and a connection covers exactly one account. If your Plaid
+dashboard does not have single-account select enabled, the backend reads the
+Item and fails with a clear message when the link resolves to more than one
+bookable account.
+
+These three routes (`/api/demo/v1/plaid-link/...`) are the demo's own; every
+other route the BFF exposes mirrors the Platform API exactly.
+
+Deleting a connection also deletes its accounts and their transactions; a
+connection whose account carries manual journal entries answers `409`, which
+the UI surfaces verbatim.
+
+## Transactions
+
+Transactions are read-only here. The upstream contract also exposes
+`GET`/`PATCH` for a single transaction; neither is vendored, so the demo cannot
+recategorize or edit anything.
+
 ## Project layout
 
 ```
 shared/    Vendored Platform API contract + Zod schemas (ts-rest), used by both sides
 backend/   Express BFF: authenticates to Kick, passes requests/errors through
-frontend/  React app: workspaces list/create, per-workspace entities list/create
+frontend/  React app: workspaces list/create, then per-workspace entities,
+           Plaid connections and transactions tabs
 ```
 
 See [AGENTS.md](AGENTS.md) for a guide aimed at coding agents extending this
-project (e.g. adding the transactions or chart-of-accounts resources).
+project (e.g. adding the chart-of-accounts or journal-entries resources).

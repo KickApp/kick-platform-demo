@@ -1,6 +1,9 @@
 import { Link, Navigate, Route, Routes } from "react-router";
 import { WorkspacesPage } from "./pages/WorkspacesPage";
-import { WorkspaceDetailPage } from "./pages/WorkspaceDetailPage";
+import { WorkspaceEntitiesPage } from "./pages/WorkspaceEntitiesPage";
+import { WorkspaceLayout } from "./pages/WorkspaceLayout";
+import { WorkspacePlaidConnectionsPage } from "./pages/WorkspacePlaidConnectionsPage";
+import { WorkspaceTransactionsPage } from "./pages/WorkspaceTransactionsPage";
 
 export function App() {
     return (
@@ -11,7 +14,8 @@ export function App() {
                     Kick Platform Demo
                 </Link>
                 <span className="app-subtitle">
-                    Workspaces &amp; entities via the Platform API
+                    Workspaces, entities, Plaid connections &amp; transactions
+                    via the Platform API
                 </span>
             </header>
             <main className="app-main">
@@ -23,8 +27,25 @@ export function App() {
                     <Route path="/workspaces" element={<WorkspacesPage />} />
                     <Route
                         path="/workspaces/:workspaceId"
-                        element={<WorkspaceDetailPage />}
-                    />
+                        element={<WorkspaceLayout />}
+                    >
+                        <Route
+                            index
+                            element={<Navigate to="entities" replace />}
+                        />
+                        <Route
+                            path="entities"
+                            element={<WorkspaceEntitiesPage />}
+                        />
+                        <Route
+                            path="plaid-connections"
+                            element={<WorkspacePlaidConnectionsPage />}
+                        />
+                        <Route
+                            path="transactions"
+                            element={<WorkspaceTransactionsPage />}
+                        />
+                    </Route>
                 </Routes>
             </main>
         </div>

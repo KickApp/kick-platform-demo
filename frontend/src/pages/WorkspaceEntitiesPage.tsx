@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router";
 import { ENTITY_LEGAL_TYPE_LABELS } from "@kick-demo/shared";
-import { fetchEntities, fetchWorkspace } from "../api/platform";
+import { fetchEntities } from "../api/platform";
 import { CreateEntityForm } from "../components/CreateEntityForm";
 import { Pagination } from "../components/Pagination";
 import {
@@ -11,70 +10,41 @@ import {
     LoadingMessage,
 } from "../components/StatusMessage";
 import { formatDateTime } from "../lib/format";
+import { useWorkspaceContext } from "../lib/workspace-context";
 
 const PAGE_SIZE = 25;
 
-export function WorkspaceDetailPage() {
-    const { workspaceId } = useParams();
+export function WorkspaceEntitiesPage() {
+    const { workspaceId } = useWorkspaceContext();
     const [offset, setOffset] = useState(0);
     const [isCreating, setIsCreating] = useState(false);
 
-    const workspaceQuery = useQuery({
-        queryKey: ["workspace", workspaceId],
-        queryFn: () => fetchWorkspace(workspaceId ?? ""),
-        enabled: workspaceId !== undefined,
-    });
-
     const entitiesQuery = useQuery({
         queryKey: ["entities", workspaceId, offset],
-        queryFn: () =>
-            fetchEntities({
-                workspaceId: workspaceId ?? "",
-                limit: PAGE_SIZE,
-                offset,
-            }),
-        enabled: workspaceId !== undefined,
+        queryFn: () => fetchEntities({ workspaceId, limit: PAGE_SIZE, offset }),
     });
-
-    if (workspaceId === undefined) {
-        return <EmptyMessage>Workspace not specified.</EmptyMessage>;
-    }
 
     return (
         <section>
-            <Link to="/workspaces" className="back-link">
-                ← All workspaces
-            </Link>
-
-            {workspaceQuery.isPending && <LoadingMessage label="workspace" />}
-            {workspaceQuery.error !== null && (
-                <ErrorMessageBox error={workspaceQuery.error} />
-            )}
-            {workspaceQuery.data && (
-                <div className="page-header">
-                    <div>
-                        <h2 className="page-title">
-                            {workspaceQuery.data.name}
-                        </h2>
-                        <p className="page-meta mono">
-                            {workspaceQuery.data.id}
-                        </p>
+            <div className="page-header">
+                <div>
+                    <h3 className="section-title">Entities</h3>
+                    {entitiesQuery.data && (
                         <p className="page-meta">
-                            Created{" "}
-                            {formatDateTime(workspaceQuery.data.createdAt)}
+                            {entitiesQuery.data.pagination.total} total
                         </p>
-                    </div>
-                    {!isCreating && (
-                        <button
-                            type="button"
-                            className="button button-primary"
-                            onClick={() => setIsCreating(true)}
-                        >
-                            New entity
-                        </button>
                     )}
                 </div>
-            )}
+                {!isCreating && (
+                    <button
+                        type="button"
+                        className="button button-primary"
+                        onClick={() => setIsCreating(true)}
+                    >
+                        New entity
+                    </button>
+                )}
+            </div>
 
             {isCreating && (
                 <CreateEntityForm
@@ -83,7 +53,6 @@ export function WorkspaceDetailPage() {
                 />
             )}
 
-            <h3 className="section-title">Entities</h3>
             {entitiesQuery.isPending && <LoadingMessage label="entities" />}
             {entitiesQuery.error !== null && (
                 <ErrorMessageBox error={entitiesQuery.error} />

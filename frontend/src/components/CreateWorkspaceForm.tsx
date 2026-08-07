@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createWorkspace } from "../api/platform";
-import { todayIsoDate } from "../lib/format";
+import { previousYearStartIsoDate } from "../lib/format";
 import { ErrorMessageBox } from "./StatusMessage";
 
 export function CreateWorkspaceForm({ onDone }: { onDone: () => void }) {
     const queryClient = useQueryClient();
     const [name, setName] = useState("");
     const [bookkeepingStartDate, setBookkeepingStartDate] =
-        useState(todayIsoDate());
+        useState(previousYearStartIsoDate());
 
     const mutation = useMutation({
         mutationFn: createWorkspace,

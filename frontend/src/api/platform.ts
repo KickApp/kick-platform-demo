@@ -1,33 +1,16 @@
 import { initClient } from "@ts-rest/core";
 import {
-    errorMessageSchema,
     platformContract,
     type CreatePlatformEntityBody,
     type CreatePlatformWorkspaceBody,
 } from "@kick-demo/shared";
+import { toApiError } from "./errors";
 
 /**
  * Client against the demo BFF, which mirrors the Kick Platform API contract
  * under `/api` (proxied to the backend by the Vite dev server).
  */
 const api = initClient(platformContract, { baseUrl: "/api" });
-
-export class ApiError extends Error {
-    constructor(
-        readonly status: number,
-        message: string,
-    ) {
-        super(message);
-    }
-}
-
-function toApiError(result: { status: number; body: unknown }): ApiError {
-    const parsedBody = errorMessageSchema.safeParse(result.body);
-    const message = parsedBody.success
-        ? parsedBody.data.message
-        : `Request failed with status ${result.status}`;
-    return new ApiError(result.status, message);
-}
 
 export async function fetchWorkspaces(query: {
     limit: number;
@@ -72,6 +55,47 @@ export async function createEntity(body: CreatePlatformEntityBody) {
     const result = await api.entities.create({ body });
     if (result.status === 201) {
         return result.body.entity;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchPlaidConnections(query: {
+    workspaceId: string;
+    entityIds?: string[];
+    limit: number;
+    offset: number;
+}) {
+    const result = await api.plaidConnections.list({ query });
+    if (result.status === 200) {
+        return result.body;
+    }
+    throw toApiError(result);
+}
+
+export async function deletePlaidConnection(connectionId: string) {
+    const result = await api.plaidConnections.delete({
+        params: { connectionId },
+    });
+    if (result.status === 200) {
+        return;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchTransactions(query: {
+    workspaceId: string;
+    startDate?: string;
+    endDate?: string;
+    limit: number;
+    offset: number;
+}) {
+    const { workspaceId, ...rest } = query;
+    const result = await api.transactions.list({
+        params: { workspaceId },
+        query: rest,
+    });
+    if (result.status === 200) {
+        return result.body;
     }
     throw toApiError(result);
 }
