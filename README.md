@@ -68,6 +68,9 @@ npm run build         # production build of the frontend
 npm run format        # prettier
 ```
 
+`npm run typecheck` also runs in CI on every pull request and on pushes to
+`main` (see `.github/workflows/typecheck.yml`).
+
 ## Curl examples (against the BFF)
 
 ```bash
