@@ -11,7 +11,9 @@ import {
     ErrorMessageBox,
     LoadingMessage,
 } from "../components/StatusMessage";
+import { TransactionAccountCell } from "../components/TransactionAccountCell";
 import { formatAmount } from "../lib/format";
+import { useEntityAccounts } from "../lib/use-entity-accounts";
 import { useWorkspaceEntities } from "../lib/use-workspace-entities";
 import { useWorkspaceContext } from "../lib/workspace-context";
 
@@ -35,6 +37,14 @@ export function WorkspaceTransactionsPage() {
                 offset,
             }),
     });
+
+    // Only the entities on the current page, so a workspace with many entities
+    // does not pull every chart of accounts to render one page of rows.
+    const accounts = useEntityAccounts(
+        (transactionsQuery.data?.data ?? []).map(
+            (transaction) => transaction.entityId,
+        ),
+    );
 
     return (
         <section>
@@ -94,6 +104,9 @@ export function WorkspaceTransactionsPage() {
             {transactionsQuery.error !== null && (
                 <ErrorMessageBox error={transactionsQuery.error} />
             )}
+            {accounts.error !== null && (
+                <ErrorMessageBox error={accounts.error} />
+            )}
 
             {transactionsQuery.data &&
                 transactionsQuery.data.data.length === 0 && (
@@ -113,6 +126,7 @@ export function WorkspaceTransactionsPage() {
                                     <th>Description</th>
                                     <th>Entity</th>
                                     <th className="amount">Amount</th>
+                                    <th>Account</th>
                                     <th>Source</th>
                                     <th>Status</th>
                                     <th>Books</th>
@@ -140,6 +154,18 @@ export function WorkspaceTransactionsPage() {
                                                 {formatAmount(
                                                     transaction.amount,
                                                 )}
+                                            </td>
+                                            <td>
+                                                <TransactionAccountCell
+                                                    transaction={transaction}
+                                                    workspaceId={workspaceId}
+                                                    accounts={accounts.accountsFor(
+                                                        transaction.entityId,
+                                                    )}
+                                                    isLoadingAccounts={
+                                                        accounts.isPending
+                                                    }
+                                                />
                                             </td>
                                             <td>
                                                 {

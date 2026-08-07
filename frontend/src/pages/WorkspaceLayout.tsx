@@ -13,6 +13,7 @@ const TABS = [
     { path: "entities", label: "Entities" },
     { path: "plaid-connections", label: "Plaid connections" },
     { path: "transactions", label: "Transactions" },
+    { path: "reports", label: "Reports" },
 ];
 
 export function WorkspaceLayout() {

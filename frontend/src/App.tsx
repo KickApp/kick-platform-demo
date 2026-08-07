@@ -3,6 +3,7 @@ import { WorkspacesPage } from "./pages/WorkspacesPage";
 import { WorkspaceEntitiesPage } from "./pages/WorkspaceEntitiesPage";
 import { WorkspaceLayout } from "./pages/WorkspaceLayout";
 import { WorkspacePlaidConnectionsPage } from "./pages/WorkspacePlaidConnectionsPage";
+import { WorkspaceReportsPage } from "./pages/WorkspaceReportsPage";
 import { WorkspaceTransactionsPage } from "./pages/WorkspaceTransactionsPage";
 
 export function App() {
@@ -14,8 +15,8 @@ export function App() {
                     Kick Platform Demo
                 </Link>
                 <span className="app-subtitle">
-                    Workspaces, entities, Plaid connections &amp; transactions
-                    via the Platform API
+                    Workspaces, entities, Plaid connections, transactions &amp;
+                    reports via the Platform API
                 </span>
             </header>
             <main className="app-main">
@@ -44,6 +45,10 @@ export function App() {
                         <Route
                             path="transactions"
                             element={<WorkspaceTransactionsPage />}
+                        />
+                        <Route
+                            path="reports"
+                            element={<WorkspaceReportsPage />}
                         />
                     </Route>
                 </Routes>

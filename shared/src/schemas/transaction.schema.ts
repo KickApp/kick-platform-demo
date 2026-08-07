@@ -72,6 +72,11 @@ export const platformTransactionsPathParamsSchema = z.object({
     workspaceId: z.string().uuid(),
 });
 
+export const platformTransactionPathParamsSchema =
+    platformTransactionsPathParamsSchema.extend({
+        transactionId: z.string().uuid(),
+    });
+
 /** `startDate`/`endDate` are inclusive calendar days. */
 export const platformTransactionsListQuerySchema =
     platformPaginationQuerySchema.extend({
@@ -90,4 +95,32 @@ export const platformTransactionsListResponseSchema = z.object({
 
 export type PlatformTransactionsListResponse = z.infer<
     typeof platformTransactionsListResponseSchema
+>;
+
+export const platformTransactionResponseSchema = z.object({
+    transaction: platformTransactionSchema,
+});
+
+export type PlatformTransactionResponse = z.infer<
+    typeof platformTransactionResponseSchema
+>;
+
+/**
+ * Every field is optional and only the ones present in the body are touched,
+ * so the demo can change a transaction's account without reading and resending
+ * the rest. `null` is the explicit "clear this" value. Inside a locked
+ * bookkeeping period only `memo` can be changed; anything else answers 409.
+ *
+ * The demo's UI only ever sends `accountId`, but the whole upstream body is
+ * vendored so `shared/` stays a faithful mirror of the Platform API.
+ */
+export const platformTransactionUpdateBodySchema = z.object({
+    classIds: z.array(z.string().uuid()).max(10).optional(),
+    memo: z.string().max(1000).nullable().optional(),
+    accountId: z.string().uuid().nullable().optional(),
+    accrualAccountId: z.string().uuid().nullable().optional(),
+});
+
+export type PlatformTransactionUpdateBody = z.infer<
+    typeof platformTransactionUpdateBodySchema
 >;

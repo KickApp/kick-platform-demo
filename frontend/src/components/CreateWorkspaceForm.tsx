@@ -7,8 +7,9 @@ import { ErrorMessageBox } from "./StatusMessage";
 export function CreateWorkspaceForm({ onDone }: { onDone: () => void }) {
     const queryClient = useQueryClient();
     const [name, setName] = useState("");
-    const [bookkeepingStartDate, setBookkeepingStartDate] =
-        useState(previousYearStartIsoDate());
+    const [bookkeepingStartDate, setBookkeepingStartDate] = useState(
+        previousYearStartIsoDate(),
+    );
 
     const mutation = useMutation({
         mutationFn: createWorkspace,

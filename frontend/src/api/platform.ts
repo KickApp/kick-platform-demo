@@ -1,8 +1,12 @@
 import { initClient } from "@ts-rest/core";
 import {
+    PLATFORM_PAGE_LIMIT_MAX,
     platformContract,
     type CreatePlatformEntityBody,
     type CreatePlatformWorkspaceBody,
+    type PlatformAccount,
+    type PlatformTransactionUpdateBody,
+    type ReportGroupBy,
 } from "@kick-demo/shared";
 import { toApiError } from "./errors";
 
@@ -96,6 +100,136 @@ export async function fetchTransactions(query: {
     });
     if (result.status === 200) {
         return result.body;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * The API only touches the fields present in the body, so passing a single key
+ * leaves the rest of the transaction alone.
+ */
+export async function updateTransaction({
+    workspaceId,
+    transactionId,
+    body,
+}: {
+    workspaceId: string;
+    transactionId: string;
+    body: PlatformTransactionUpdateBody;
+}) {
+    const result = await api.transactions.update({
+        params: { workspaceId, transactionId },
+        body,
+    });
+    if (result.status === 200) {
+        return result.body.transaction;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchChartOfAccounts(query: {
+    entityId: string;
+    limit: number;
+    offset: number;
+}) {
+    const { entityId, ...rest } = query;
+    const result = await api.chartOfAccounts.list({
+        params: { entityId },
+        query: rest,
+    });
+    if (result.status === 200) {
+        return result.body;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Resolving the account a transaction points at needs the whole chart, and the
+ * API caps a page at 100 accounts, so walk the offsets until the reported total
+ * is covered.
+ */
+export async function fetchAllChartOfAccounts(
+    entityId: string,
+): Promise<PlatformAccount[]> {
+    const accounts: PlatformAccount[] = [];
+    let offset = 0;
+    let total = 0;
+    do {
+        const page = await fetchChartOfAccounts({
+            entityId,
+            limit: PLATFORM_PAGE_LIMIT_MAX,
+            offset,
+        });
+        accounts.push(...page.data);
+        total = page.pagination.total;
+        offset += PLATFORM_PAGE_LIMIT_MAX;
+    } while (accounts.length < total);
+    return accounts;
+}
+
+/**
+ * The demo keeps books on the cash basis only, so every report goes out on that
+ * basis even though the Platform API also serves accruals.
+ */
+export type ReportQuery = {
+    entityId: string;
+    startDate: string;
+    endDate: string;
+    groupBy: ReportGroupBy;
+};
+
+const CASH_BASIS = "cash" as const;
+
+function toReportRequest({ entityId, ...query }: ReportQuery) {
+    return {
+        params: { entityId },
+        query: { ...query, ledgerBasis: CASH_BASIS },
+    };
+}
+
+export async function fetchProfitAndLossReport(query: ReportQuery) {
+    const result = await api.reports.profitAndLoss(toReportRequest(query));
+    if (result.status === 200) {
+        return result.body.report;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchBalanceSheetReport(query: ReportQuery) {
+    const result = await api.reports.balanceSheet(toReportRequest(query));
+    if (result.status === 200) {
+        return result.body.report;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchCashFlowReport(query: ReportQuery) {
+    const result = await api.reports.cashFlow(toReportRequest(query));
+    if (result.status === 200) {
+        return result.body.report;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchTrialBalanceReport(query: ReportQuery) {
+    const result = await api.reports.trialBalance(toReportRequest(query));
+    if (result.status === 200) {
+        return result.body.report;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchGeneralLedgerReport({
+    entityId,
+    startDate,
+    endDate,
+}: Omit<ReportQuery, "groupBy">) {
+    const result = await api.reports.generalLedger({
+        params: { entityId },
+        query: { startDate, endDate, ledgerBasis: CASH_BASIS },
+    });
+    if (result.status === 200) {
+        return result.body.report;
     }
     throw toApiError(result);
 }

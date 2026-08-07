@@ -91,5 +91,79 @@ export const platformRouter = s.router(platformContract, {
             }
             return forwardUpstreamError(result);
         },
+        update: async ({ params, body }) => {
+            const result = await kickClient.transactions.update({
+                params,
+                body,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+    },
+    chartOfAccounts: {
+        list: async ({ params, query }) => {
+            const result = await kickClient.chartOfAccounts.list({
+                params,
+                query,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+    },
+    reports: {
+        profitAndLoss: async ({ params, query }) => {
+            const result = await kickClient.reports.profitAndLoss({
+                params,
+                query,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        balanceSheet: async ({ params, query }) => {
+            const result = await kickClient.reports.balanceSheet({
+                params,
+                query,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        cashFlow: async ({ params, query }) => {
+            const result = await kickClient.reports.cashFlow({
+                params,
+                query,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        trialBalance: async ({ params, query }) => {
+            const result = await kickClient.reports.trialBalance({
+                params,
+                query,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        generalLedger: async ({ params, query }) => {
+            const result = await kickClient.reports.generalLedger({
+                params,
+                query,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
     },
 });
