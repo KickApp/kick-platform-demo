@@ -4,6 +4,7 @@ import {
     usePlaidLink,
     type PlaidLinkOptionsWithLinkToken,
 } from "react-plaid-link";
+import type { PlatformEntity } from "@kick-demo/shared";
 import {
     createPlaidLinkConnection,
     createPlaidLinkToken,
@@ -19,9 +20,69 @@ export function CreatePlaidConnectionForm({
     workspaceId: string;
     onDone: () => void;
 }) {
-    const queryClient = useQueryClient();
     const { entities, error: entitiesError } =
         useWorkspaceEntities(workspaceId);
+
+    const configQuery = useQuery({
+        queryKey: ["plaidLinkConfig"],
+        queryFn: fetchPlaidLinkConfig,
+    });
+
+    if (configQuery.isPending) {
+        return <LoadingMessage label="Plaid configuration" />;
+    }
+    if (configQuery.error !== null) {
+        return <ErrorMessageBox error={configQuery.error} />;
+    }
+    if (!configQuery.data.configured) {
+        return (
+            <EmptyMessage>
+                Plaid Link is not configured on the demo backend. Set{" "}
+                <code>PLAID_CLIENT_ID</code> and <code>PLAID_SECRET</code> and
+                restart it to connect an account from here.
+            </EmptyMessage>
+        );
+    }
+
+    if (entitiesError !== null) {
+        return <ErrorMessageBox error={entitiesError} />;
+    }
+    if (entities.length === 0) {
+        return (
+            <EmptyMessage>
+                Create an entity first — a Plaid connection is always assigned
+                to one.
+            </EmptyMessage>
+        );
+    }
+
+    return (
+        <PlaidLinkForm
+            workspaceId={workspaceId}
+            entities={entities}
+            environment={configQuery.data.environment}
+            onDone={onDone}
+        />
+    );
+}
+
+/**
+ * Split out so it mounts only once Plaid is known to be configured and there
+ * is an entity to assign: `usePlaidLink` injects Plaid's script as soon as it
+ * runs, and there is nothing to load it for otherwise.
+ */
+function PlaidLinkForm({
+    workspaceId,
+    entities,
+    environment,
+    onDone,
+}: {
+    workspaceId: string;
+    entities: PlatformEntity[];
+    environment: string | null;
+    onDone: () => void;
+}) {
+    const queryClient = useQueryClient();
     const [entityId, setEntityId] = useState("");
 
     const selectedEntityId =
@@ -35,16 +96,10 @@ export function CreatePlaidConnectionForm({
         selectedEntityIdRef.current = selectedEntityId;
     }, [selectedEntityId]);
 
-    const configQuery = useQuery({
-        queryKey: ["plaidLinkConfig"],
-        queryFn: fetchPlaidLinkConfig,
-    });
-
-    // Link tokens expire quickly, so this one is not kept across mounts.
+    // Link tokens are short-lived, so this one is not kept across mounts.
     const linkTokenQuery = useQuery({
         queryKey: ["plaidLinkToken"],
         queryFn: createPlaidLinkToken,
-        enabled: configQuery.data?.configured === true,
         gcTime: 0,
     });
 
@@ -68,6 +123,8 @@ export function CreatePlaidConnectionForm({
             connectMutation.mutate({
                 entityId: selectedEntityIdRef.current,
                 publicToken,
+                // Absent when the Plaid dashboard has no single-account
+                // select; the backend then resolves the account itself.
                 accountId:
                     metadata.accounts.length === 1 && only !== undefined
                         ? only.id
@@ -77,37 +134,11 @@ export function CreatePlaidConnectionForm({
     };
     const { open, ready } = usePlaidLink(linkOptions);
 
-    if (configQuery.isPending) {
-        return <LoadingMessage label="Plaid configuration" />;
-    }
-
-    if (configQuery.data?.configured !== true) {
-        return (
-            <EmptyMessage>
-                Plaid Link is not configured on the demo backend. Set{" "}
-                <code>PLAID_CLIENT_ID</code> and <code>PLAID_SECRET</code> and
-                restart it to connect an account from here.
-            </EmptyMessage>
-        );
-    }
-
-    if (entitiesError === null && entities.length === 0) {
-        return (
-            <EmptyMessage>
-                Create an entity first — a Plaid connection is always assigned
-                to one.
-            </EmptyMessage>
-        );
-    }
-
     const isBusy = connectMutation.isPending || linkTokenQuery.isPending;
 
     return (
         <div className="card form-card">
             <h3 className="form-title">New Plaid connection</h3>
-            {entitiesError !== null && (
-                <ErrorMessageBox error={entitiesError} />
-            )}
             <label className="field">
                 <span className="field-label">Entity</span>
                 <select
@@ -128,12 +159,10 @@ export function CreatePlaidConnectionForm({
             </label>
             <p className="field-hint">
                 Plaid Link runs under this demo's own Plaid credentials
-                {configQuery.data.environment !== null && (
-                    <> ({configQuery.data.environment})</>
-                )}
-                . The backend exchanges the resulting public token for a{" "}
-                <code>kick</code> processor token and sends only that to the
-                Platform API — Kick never sees your Plaid access token.
+                {environment !== null && <> ({environment})</>}. The backend
+                exchanges the resulting public token for a <code>kick</code>{" "}
+                processor token and sends only that to the Platform API — Kick
+                never sees the Plaid access token.
             </p>
             {linkTokenQuery.error !== null && (
                 <ErrorMessageBox error={linkTokenQuery.error} />
