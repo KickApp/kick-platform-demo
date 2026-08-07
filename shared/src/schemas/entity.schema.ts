@@ -5,8 +5,7 @@ import {
 } from "./pagination.schema";
 
 /**
- * Legal types accepted for entities. Mirrors `EntityProfileType` from the kick
- * repo (`common/types/entity.ts`).
+ * Legal types the Platform API accepts for entities.
  */
 export const ENTITY_LEGAL_TYPES = [
     "sole_proprietorship",
@@ -33,10 +32,8 @@ export const ENTITY_LEGAL_TYPE_LABELS: Record<EntityLegalType, string> = {
 };
 
 /**
- * Wire shape of a Platform API entity, vendored from
- * `common/schemas/platform/entity.platform.schema.ts` in the kick repo.
- * `bookkeepingStartDate` is a date-only string (YYYY-MM-DD); `createdAt` is an
- * ISO-8601 datetime string.
+ * Wire shape of a Platform API entity. `bookkeepingStartDate` is a date-only
+ * string (YYYY-MM-DD); `createdAt` is an ISO-8601 datetime string.
  */
 export const platformEntitySchema = z.object({
     id: z.string().uuid(),

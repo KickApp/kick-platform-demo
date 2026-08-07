@@ -3,6 +3,7 @@
     "private": true,
     "version": "0.1.0",
     "description": "Demo app for the Kick Platform API: React frontend + Express BFF backend",
+    "license": "MIT",
     "workspaces": [
         "shared",
         "backend",
