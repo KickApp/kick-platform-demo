@@ -33,10 +33,15 @@ There is no test harness or eslint yet; keep `typecheck`, `build`, and
   with status 200.
 - Auth is `Authorization: Bearer <token>`. Only the backend ever holds the
   token; never expose it to frontend code.
+- `PLAID_CLIENT_ID` / `PLAID_SECRET` (optional, plus `PLAID_ENV` and
+  `PLAID_PRODUCTS`): the demo's own Plaid credentials for the Link flow. They
+  are optional by design — `config.plaid` is `null` without them and only the
+  Link flow switches off, so never make them `requireEnv`.
 
 ## Architecture
 
-Single vendored ts-rest contract, used on both hops:
+One vendored ts-rest contract mirroring the Platform API, used on both hops,
+plus a small demo-only contract for the Plaid Link flow:
 
 - `shared/src/contracts/platform.contract.ts` mirrors the upstream contract
   paths exactly (`/platform/v1/workspaces`, `/platform/v1/entities`,
@@ -59,6 +64,32 @@ Single vendored ts-rest contract, used on both hops:
   fields the upstream API may include are deliberately not modeled in
   `shared/` and get stripped — keep it that way and do not surface
   Kick-internal concepts in this demo.
+- `shared/src/contracts/plaid-link.contract.ts` is the one contract that is
+  **not** a mirror: `/demo/v1/plaid-link/{config,link-token,connections}`
+  exist only here, implemented in `backend/src/plaid-link-router.ts`. Keep
+  demo-only routes under `/demo/` and out of `platform.contract.ts` so the
+  mirror stays a mirror.
+
+## The Plaid Link flow
+
+Minting a Plaid `processor_token` is the partner's job, not Kick's, so the demo
+owns the whole flow:
+
+1. Browser asks the BFF for a link token (`/link/token/create`, filtered to USD
+   depository/credit/loan accounts).
+2. Plaid Link runs in the browser and returns a public token.
+3. The BFF exchanges it (`/item/public_token/exchange`), resolves the account
+   id (from Link metadata, or by reading the Item when Account Select is off),
+   and calls `/processor/token/create` with `processor: "kick"` — `kick` is a
+   registered Plaid processor.
+4. The BFF posts only the processor token to
+   `POST /platform/v1/plaid-connections`.
+
+Invariants worth preserving: the Plaid access token never leaves the backend,
+the browser only ever holds a link token, and Kick only ever receives a
+processor token. Plaid SDK rejections are unwrapped by `toPlaidRequestError`
+into a readable 400 — without it the caller only sees "Request failed with
+status code 400".
 
 ## Source of truth for the API
 
@@ -80,10 +111,10 @@ transactions. Some upstream routes are intentionally left out:
 
 - Transactions: only `list`. The upstream `get` and `update` (`PATCH`) routes
   are not vendored, so the demo never writes to a transaction.
-- Plaid: `create` takes a `processor_token` the partner obtained from its own
-  Plaid Link flow — there is no link/public token exchange on this surface, and
-  this demo has no Plaid credentials, so the create form asks for a pasted
-  token. Creation can therefore only be smoke-tested up to the upstream 400.
+- Plaid: the Platform API's `create` takes a `processor_token` and has no
+  link/public token exchange. The UI goes through the demo's own Plaid Link
+  routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is
+  kept for parity and curl use.
 - Chart of accounts, classes, journal entries and reports are not vendored at
   all.
 

@@ -1,9 +1,10 @@
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import { createExpressEndpoints } from "@ts-rest/express";
-import { platformContract } from "@kick-demo/shared";
+import { plaidLinkContract, platformContract } from "@kick-demo/shared";
 import { config } from "./config";
 import { UpstreamError } from "./kick-client";
+import { plaidLinkRouter } from "./plaid-link-router";
 import { platformRouter } from "./router";
 
 const app = express();
@@ -25,6 +26,12 @@ app.get("/healthz", (_req, res) => {
 // (e.g. Kick-internal flags on workspaces).
 const apiRouter = express.Router();
 createExpressEndpoints(platformContract, platformRouter, apiRouter, {
+    logInitialization: false,
+    responseValidation: true,
+});
+// The demo's own Plaid Link routes, under /demo/ so they stay visibly apart
+// from the mirrored /platform/v1/ surface.
+createExpressEndpoints(plaidLinkContract, plaidLinkRouter, apiRouter, {
     logInitialization: false,
     responseValidation: true,
 });

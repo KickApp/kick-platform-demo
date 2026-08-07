@@ -1,34 +1,16 @@
 import { initClient } from "@ts-rest/core";
 import {
-    errorMessageSchema,
     platformContract,
     type CreatePlatformEntityBody,
-    type CreatePlatformPlaidConnectionBody,
     type CreatePlatformWorkspaceBody,
 } from "@kick-demo/shared";
+import { toApiError } from "./errors";
 
 /**
  * Client against the demo BFF, which mirrors the Kick Platform API contract
  * under `/api` (proxied to the backend by the Vite dev server).
  */
 const api = initClient(platformContract, { baseUrl: "/api" });
-
-export class ApiError extends Error {
-    constructor(
-        readonly status: number,
-        message: string,
-    ) {
-        super(message);
-    }
-}
-
-function toApiError(result: { status: number; body: unknown }): ApiError {
-    const parsedBody = errorMessageSchema.safeParse(result.body);
-    const message = parsedBody.success
-        ? parsedBody.data.message
-        : `Request failed with status ${result.status}`;
-    return new ApiError(result.status, message);
-}
 
 export async function fetchWorkspaces(query: {
     limit: number;
@@ -85,16 +67,6 @@ export async function fetchPlaidConnections(query: {
 }) {
     const result = await api.plaidConnections.list({ query });
     if (result.status === 200) {
-        return result.body;
-    }
-    throw toApiError(result);
-}
-
-export async function createPlaidConnection(
-    body: CreatePlatformPlaidConnectionBody,
-) {
-    const result = await api.plaidConnections.create({ body });
-    if (result.status === 201) {
         return result.body;
     }
     throw toApiError(result);

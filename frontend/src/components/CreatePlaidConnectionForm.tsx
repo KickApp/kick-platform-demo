@@ -1,9 +1,16 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { PROCESSOR_TOKEN_PATTERN } from "@kick-demo/shared";
-import { createPlaidConnection } from "../api/platform";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+    usePlaidLink,
+    type PlaidLinkOptionsWithLinkToken,
+} from "react-plaid-link";
+import {
+    createPlaidLinkConnection,
+    createPlaidLinkToken,
+    fetchPlaidLinkConfig,
+} from "../api/plaid-link";
 import { useWorkspaceEntities } from "../lib/use-workspace-entities";
-import { EmptyMessage, ErrorMessageBox } from "./StatusMessage";
+import { EmptyMessage, ErrorMessageBox, LoadingMessage } from "./StatusMessage";
 
 export function CreatePlaidConnectionForm({
     workspaceId,
@@ -16,10 +23,33 @@ export function CreatePlaidConnectionForm({
     const { entities, error: entitiesError } =
         useWorkspaceEntities(workspaceId);
     const [entityId, setEntityId] = useState("");
-    const [processorToken, setProcessorToken] = useState("");
 
-    const mutation = useMutation({
-        mutationFn: createPlaidConnection,
+    const selectedEntityId =
+        entityId !== "" ? entityId : (entities[0]?.id ?? "");
+
+    // Plaid hands the public token to a callback it captured when Link opened,
+    // so the entity has to be readable from a ref rather than a closed-over
+    // render value.
+    const selectedEntityIdRef = useRef(selectedEntityId);
+    useEffect(() => {
+        selectedEntityIdRef.current = selectedEntityId;
+    }, [selectedEntityId]);
+
+    const configQuery = useQuery({
+        queryKey: ["plaidLinkConfig"],
+        queryFn: fetchPlaidLinkConfig,
+    });
+
+    // Link tokens expire quickly, so this one is not kept across mounts.
+    const linkTokenQuery = useQuery({
+        queryKey: ["plaidLinkToken"],
+        queryFn: createPlaidLinkToken,
+        enabled: configQuery.data?.configured === true,
+        gcTime: 0,
+    });
+
+    const connectMutation = useMutation({
+        mutationFn: createPlaidLinkConnection,
         onSuccess: async () => {
             await queryClient.invalidateQueries({
                 queryKey: ["plaidConnections", workspaceId],
@@ -28,8 +58,38 @@ export function CreatePlaidConnectionForm({
         },
     });
 
-    const selectedEntityId =
-        entityId !== "" ? entityId : (entities[0]?.id ?? "");
+    const linkOptions: PlaidLinkOptionsWithLinkToken = {
+        token: linkTokenQuery.data?.linkToken ?? null,
+        onSuccess: (publicToken, metadata) => {
+            if (publicToken === null) {
+                return;
+            }
+            const [only] = metadata.accounts;
+            connectMutation.mutate({
+                entityId: selectedEntityIdRef.current,
+                publicToken,
+                accountId:
+                    metadata.accounts.length === 1 && only !== undefined
+                        ? only.id
+                        : undefined,
+            });
+        },
+    };
+    const { open, ready } = usePlaidLink(linkOptions);
+
+    if (configQuery.isPending) {
+        return <LoadingMessage label="Plaid configuration" />;
+    }
+
+    if (configQuery.data?.configured !== true) {
+        return (
+            <EmptyMessage>
+                Plaid Link is not configured on the demo backend. Set{" "}
+                <code>PLAID_CLIENT_ID</code> and <code>PLAID_SECRET</code> and
+                restart it to connect an account from here.
+            </EmptyMessage>
+        );
+    }
 
     if (entitiesError === null && entities.length === 0) {
         return (
@@ -40,17 +100,10 @@ export function CreatePlaidConnectionForm({
         );
     }
 
+    const isBusy = connectMutation.isPending || linkTokenQuery.isPending;
+
     return (
-        <form
-            className="card form-card"
-            onSubmit={(event) => {
-                event.preventDefault();
-                mutation.mutate({
-                    entityId: selectedEntityId,
-                    processorToken: processorToken.trim(),
-                });
-            }}
-        >
+        <div className="card form-card">
             <h3 className="form-title">New Plaid connection</h3>
             {entitiesError !== null && (
                 <ErrorMessageBox error={entitiesError} />
@@ -60,6 +113,7 @@ export function CreatePlaidConnectionForm({
                 <select
                     value={selectedEntityId}
                     onChange={(event) => setEntityId(event.target.value)}
+                    disabled={isBusy}
                 >
                     {entities.map((entity) => (
                         <option key={entity.id} value={entity.id}>
@@ -67,50 +121,46 @@ export function CreatePlaidConnectionForm({
                         </option>
                     ))}
                 </select>
-            </label>
-            <label className="field">
-                <span className="field-label">Processor token</span>
-                <input
-                    type="text"
-                    value={processorToken}
-                    onChange={(event) => setProcessorToken(event.target.value)}
-                    placeholder="processor-sandbox-0a1b2c3d-…"
-                    pattern={PROCESSOR_TOKEN_PATTERN.source}
-                    maxLength={200}
-                    required
-                    autoFocus
-                />
                 <span className="field-hint">
-                    Kick never runs Plaid Link on this surface: you run it under
-                    your own Plaid credentials and pass the resulting
-                    <code> processor_token</code> here. It must point at exactly
-                    one USD credit, depository or loan account.
+                    The account you link is created already assigned to this
+                    entity.
                 </span>
             </label>
-            {mutation.error !== null && (
-                <ErrorMessageBox error={mutation.error} />
+            <p className="field-hint">
+                Plaid Link runs under this demo's own Plaid credentials
+                {configQuery.data.environment !== null && (
+                    <> ({configQuery.data.environment})</>
+                )}
+                . The backend exchanges the resulting public token for a{" "}
+                <code>kick</code> processor token and sends only that to the
+                Platform API — Kick never sees your Plaid access token.
+            </p>
+            {linkTokenQuery.error !== null && (
+                <ErrorMessageBox error={linkTokenQuery.error} />
+            )}
+            {connectMutation.error !== null && (
+                <ErrorMessageBox error={connectMutation.error} />
             )}
             <div className="form-actions">
                 <button
                     type="button"
                     className="button button-secondary"
                     onClick={onDone}
-                    disabled={mutation.isPending}
+                    disabled={connectMutation.isPending}
                 >
                     Cancel
                 </button>
                 <button
-                    type="submit"
+                    type="button"
                     className="button button-primary"
-                    disabled={
-                        mutation.isPending ||
-                        selectedEntityId === "" ||
-                        processorToken.trim() === ""
-                    }
+                    onClick={() => open()}
+                    disabled={!ready || isBusy || selectedEntityId === ""}
                 >
-                    {mutation.isPending ? "Connecting…" : "Create connection"}
+                    {connectMutation.isPending
+                        ? "Creating connection…"
+                        : "Connect with Plaid"}
                 </button>
             </div>
-        </form>
+        </div>
     );
 }

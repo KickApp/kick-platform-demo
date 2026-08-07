@@ -5,8 +5,8 @@ small Express BFF backend covering **workspaces**, **entities**, **Plaid
 connections** and **transactions** through the external Platform API.
 
 Opening a workspace gives three tabs: manage its entities, manage the Plaid
-connections the partner created (list, connect, delete), and read the
-workspace's transactions across every entity.
+connections the partner created (list, connect through Plaid Link, delete), and
+read the workspace's transactions across every entity.
 
 ## How it works
 
@@ -37,11 +37,18 @@ cp .env.example .env   # then set KICK_PLATFORM_API_TOKEN (skip if the env var i
 
 Configuration (env vars, or `.env` at the repo root):
 
-| Variable                  | Default                       | Purpose                                  |
-| ------------------------- | ----------------------------- | ---------------------------------------- |
-| `KICK_PLATFORM_API_TOKEN` | — (required)                  | `kick_org_...` organization access token |
-| `KICK_API_BASE_URL`       | `https://use-dev.kick.co/api` | Kick API base (note the `/api` suffix)   |
-| `BACKEND_PORT`            | `4001`                        | Port for the BFF backend                 |
+| Variable                  | Default                       | Purpose                                       |
+| ------------------------- | ----------------------------- | --------------------------------------------- |
+| `KICK_PLATFORM_API_TOKEN` | — (required)                  | `kick_org_...` organization access token      |
+| `KICK_API_BASE_URL`       | `https://use-dev.kick.co/api` | Kick API base (note the `/api` suffix)        |
+| `BACKEND_PORT`            | `4001`                        | Port for the BFF backend                      |
+| `PLAID_CLIENT_ID`         | — (optional)                  | Your Plaid client id, for the Plaid Link flow |
+| `PLAID_SECRET`            | — (optional)                  | Your Plaid secret for `PLAID_ENV`             |
+| `PLAID_ENV`               | `sandbox`                     | `sandbox` or `production`                     |
+| `PLAID_PRODUCTS`          | `transactions,auth`           | Products enabled on the linked Item           |
+
+Without the `PLAID_*` variables everything still works; only "New connection"
+on the Plaid connections tab is disabled, with a message saying so.
 
 ## Run
 
@@ -83,7 +90,8 @@ curl -s -X POST "http://localhost:4001/api/platform/v1/entities" \
 # List the Plaid connections of a workspace (optionally narrowed to entities)
 curl -s "http://localhost:4001/api/platform/v1/plaid-connections?workspaceId=<uuid>&entityIds=<uuid>"
 
-# Create a Plaid connection from a processor token
+# Create a Plaid connection from a processor token you already have
+# (the UI goes through Plaid Link instead — see "Plaid connections" below)
 curl -s -X POST "http://localhost:4001/api/platform/v1/plaid-connections" \
   -H "Content-Type: application/json" \
   -d '{"entityId": "<uuid>", "processorToken": "processor-sandbox-<identifier>"}'
@@ -101,13 +109,38 @@ The same paths work directly against the Kick API — replace the host with
 
 ## Plaid connections
 
-The Platform API has no link-token or public-token exchange: the partner runs
-Plaid Link under its own Plaid credentials and hands Kick the resulting
-`processor_token`. This demo has no Plaid credentials of its own, so the
-"New connection" form asks for a `processor-<environment>-<identifier>` token
-you already obtained. The token must point at exactly one USD credit,
-depository or loan account, and that account is created already assigned to the
-entity you pick.
+The Platform API has no link-token or public-token exchange: minting the
+`processor_token` is the partner's job. This demo therefore runs the whole
+Plaid Link flow itself, and the browser never sees anything but a link token:
+
+```
+Browser                     Demo BFF                    Plaid            Kick
+  │  POST /demo/v1/plaid-link/link-token                   │               │
+  │ ─────────────────────────▶ /link/token/create ────────▶│               │
+  │ ◀───────── link_token ─────────────────────────────────│               │
+  │  (Plaid Link opens, user picks an account)             │               │
+  │  POST /demo/v1/plaid-link/connections                  │               │
+  │      { entityId, publicToken, accountId }              │               │
+  │ ─────────────────────────▶ /item/public_token/exchange▶│               │
+  │                            /processor/token/create ───▶│               │
+  │                              (processor: "kick")       │               │
+  │                            POST /platform/v1/plaid-connections ───────▶│
+  │ ◀───────── { connection, account } ────────────────────────────────────│
+```
+
+`kick` is a registered Plaid processor, so `/processor/token/create` mints a
+token Kick can read with its own processor-partner credentials. The Plaid
+access token stays inside the demo backend: Kick only ever receives the
+processor token, and the browser only ever receives a link token.
+
+Link is filtered to USD credit, depository and loan accounts because Kick
+books nothing else, and a connection covers exactly one account. If your Plaid
+dashboard does not have single-account select enabled, the backend reads the
+Item and fails with a clear message when the link resolves to more than one
+bookable account.
+
+These three routes (`/api/demo/v1/plaid-link/...`) are the demo's own; every
+other route the BFF exposes mirrors the Platform API exactly.
 
 Deleting a connection also deletes its accounts and their transactions; a
 connection whose account carries manual journal entries answers `409`, which
