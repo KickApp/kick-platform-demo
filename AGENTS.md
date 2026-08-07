@@ -68,7 +68,10 @@ plus a small demo-only contract for the Plaid Link flow:
   502 via `UpstreamError`. Deleting a Plaid connection and updating a
   transaction inside a locked bookkeeping period are the only routes that
   answer 409 today, but the contract declares the same error superset on every
-  route.
+  route. Kick answers a malformed request with a ts-rest validation envelope
+  rather than `{ message }`, so `forwardUpstreamError` unwraps that into a
+  readable 400 — without it a plain "startDate must be on or before endDate"
+  reaches the caller as an opaque 502.
 - The BFF runs with `responseValidation: true`, so response bodies are parsed
   through the contract schemas before leaving the backend. Any Kick-internal
   fields the upstream API may include are deliberately not modeled in
@@ -112,9 +115,9 @@ When the Platform API changes, update `shared/` to match.
 
 Enums are vendored as `as const` arrays fed to `z.enum`, which means a value
 Kick adds upstream fails the BFF's response validation until it is copied here.
-That is the trade for catching drift; the enums to watch are the account types
-and classes in `chart-of-accounts.schema.ts` and the report section enums in
-`report.schema.ts`.
+That is the trade for catching drift early; the enums to watch are the account
+types and classes in `chart-of-accounts.schema.ts` and the report section enums
+in `report.schema.ts`.
 
 ## Vendored resources and deliberate gaps
 
@@ -146,8 +149,11 @@ what the demo should say about two sets of books.
 ## Adding a new resource (e.g. classes, journal entries)
 
 1. Look up the resource's routes and payloads in the Platform API docs. Note
-   that some resources nest under a workspace path, e.g.
-   `/platform/v1/workspaces/:workspaceId/transactions`.
+   that resources nest under either a workspace or an entity path, e.g.
+   `/platform/v1/workspaces/:workspaceId/transactions` versus
+   `/platform/v1/entities/:entityId/chart-of-accounts`. An entity-scoped
+   resource shown in the workspace view needs an entity picker, the way
+   `WorkspaceReportsPage` does it.
 2. Vendor the wire-shape schemas into `shared/src/schemas/<resource>.schema.ts`
    and add a router to `shared/src/contracts/platform.contract.ts`; re-export
    from `shared/src/index.ts`. Leave upstream `.refine()` calls off query

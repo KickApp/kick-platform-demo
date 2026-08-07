@@ -1,10 +1,9 @@
 import { z } from "zod";
 
 /**
- * Wire shapes of the Platform API's financial reports, vendored from
- * `common/schemas/platform/report.platform.schema.ts` in the kick repo.
+ * Wire shapes of the Platform API's financial reports.
  *
- * Reports are deliberately flatter than Kick's internal report DTOs: account
+ * Reports are deliberately flatter than Kick's internal report shapes: account
  * lines arrive already flattened out of the nested report groups, so nothing
  * here is recursive. Every report carries the same shape whether or not
  * `groupBy` was used — `periods` always lists at least one date range and each

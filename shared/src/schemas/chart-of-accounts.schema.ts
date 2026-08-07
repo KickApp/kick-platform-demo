@@ -5,8 +5,7 @@ import {
 } from "./pagination.schema";
 
 /**
- * Account types Kick books to. Mirrors `AccountType` from the kick repo
- * (`common/constants/domains/accounting/accounts.ts`). The values are already
+ * Account types the Platform API books to. The values are already
  * display-ready, so unlike the entity legal types there is no label map.
  */
 export const ACCOUNT_TYPES = [
@@ -39,7 +38,7 @@ export const accountTypeSchema = z.enum(ACCOUNT_TYPES);
 
 export type AccountType = z.infer<typeof accountTypeSchema>;
 
-/** Mirrors `AccountClass` from the kick repo. */
+/** The five classes every account type rolls up into. */
 export const ACCOUNT_CLASSES = [
     "Assets",
     "Liabilities",
@@ -53,10 +52,9 @@ export const accountClassSchema = z.enum(ACCOUNT_CLASSES);
 export type AccountClass = z.infer<typeof accountClassSchema>;
 
 /**
- * Wire shape of a Platform API account, vendored from
- * `common/schemas/platform/chart-of-accounts.platform.schema.ts` in the kick
- * repo. `code` is the human-facing account code, absent on some accounts.
- * Archived accounts stay in the listing and are flagged with `isDisabled`.
+ * Wire shape of a Platform API account. `code` is the human-facing account
+ * code, absent on some accounts. Archived accounts stay in the listing and are
+ * flagged with `isDisabled`.
  */
 export const platformAccountSchema = z.object({
     id: z.string().uuid(),
