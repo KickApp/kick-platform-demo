@@ -30,9 +30,8 @@ import {
 const c = initContract();
 
 /**
- * Vendored mirror of the Kick Platform API contracts
- * (`common/contracts/platform/*.platform.contract.ts` in the kick repo),
- * restricted to the resources this demo uses. Paths match the upstream API
+ * Vendored mirror of the Kick Platform API, restricted to the resources this
+ * demo uses. Paths match the upstream API
  * exactly, so the same contract drives both the backend's upstream client
  * (base `https://use-dev.kick.co/api`) and the frontend's client against the
  * BFF (base `/api`).

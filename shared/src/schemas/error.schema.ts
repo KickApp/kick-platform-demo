@@ -1,9 +1,8 @@
 import { z } from "zod";
 
 /**
- * Error envelope returned by the Kick API. Mirrors `ErrorMessageSchema` from
- * the kick repo (`common/schemas/error.schema.ts`); `statusCode` is added by
- * the NestJS error envelope on the wire.
+ * Error envelope returned by the Kick API. `message` is always present;
+ * `statusCode` and `traceId` are optional because not every error carries them.
  */
 export const errorMessageSchema = z.object({
     message: z.string(),

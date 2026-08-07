@@ -22,9 +22,8 @@ Kick API  https://use-dev.kick.co/api/platform/v1/...
 
 The backend is a thin pass-through: it exposes the same ts-rest contract it
 consumes and only adds the organization access token, which never reaches the
-browser. The contract and Zod schemas live in `shared/` and are a vendored,
-standalone mirror of the contracts in the main kick repo
-(`common/contracts/platform/*.platform.contract.ts`).
+browser. The contract and Zod schemas live in `shared/` and are a standalone,
+hand-maintained mirror of the Platform API surface this demo uses.
 
 ## Setup
 

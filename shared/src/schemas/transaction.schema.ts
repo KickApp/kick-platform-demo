@@ -5,8 +5,7 @@ import {
 } from "./pagination.schema";
 
 /**
- * Provenance of a transaction. Mirrors `TransactionType` from the kick repo
- * (`common/types/transaction.ts`).
+ * Provenance of a transaction, i.e. where the Platform API sourced it from.
  */
 export const TRANSACTION_TYPES = [
     "external",
@@ -45,10 +44,8 @@ export const TRANSACTION_STATUS_LABELS: Record<TransactionStatus, string> = {
 };
 
 /**
- * Wire shape of a Platform API transaction, vendored from
- * `common/schemas/platform/transaction.platform.schema.ts` in the kick repo.
- * `date` is the calendar day the money moved, as a date-only string
- * (YYYY-MM-DD).
+ * Wire shape of a Platform API transaction. `date` is the calendar day the
+ * money moved, as a date-only string (YYYY-MM-DD).
  */
 export const platformTransactionSchema = z.object({
     id: z.string().uuid(),
