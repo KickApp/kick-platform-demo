@@ -16,6 +16,7 @@ export function formatAmount(amount: number): string {
     }).format(amount);
 }
 
-export function todayIsoDate(): string {
-    return new Date().toISOString().slice(0, 10);
+/** January 1st of last year, the default start date for new books. */
+export function previousYearStartIsoDate(): string {
+    return `${new Date().getFullYear() - 1}-01-01`;
 }

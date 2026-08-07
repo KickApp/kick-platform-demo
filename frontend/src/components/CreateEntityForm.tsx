@@ -6,7 +6,7 @@ import {
     type EntityLegalType,
 } from "@kick-demo/shared";
 import { createEntity } from "../api/platform";
-import { todayIsoDate } from "../lib/format";
+import { previousYearStartIsoDate } from "../lib/format";
 import { ErrorMessageBox } from "./StatusMessage";
 
 export function CreateEntityForm({
@@ -20,7 +20,7 @@ export function CreateEntityForm({
     const [name, setName] = useState("");
     const [legalType, setLegalType] = useState<EntityLegalType>("smllc");
     const [bookkeepingStartDate, setBookkeepingStartDate] =
-        useState(todayIsoDate());
+        useState(previousYearStartIsoDate());
 
     const mutation = useMutation({
         mutationFn: createEntity,
