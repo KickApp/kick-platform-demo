@@ -1,5 +1,6 @@
 import type { IncomingHttpHeaders } from "node:http";
 import express from "express";
+import type { Response } from "express";
 import { Webhook } from "svix";
 import { identifyKickWebhookEvent } from "@kick-demo/shared";
 import { config } from "./config";
@@ -57,6 +58,15 @@ function parseJsonBody(
     }
 }
 
+/**
+ * Only an unverifiable signature is refused. An unreadable or unknown payload
+ * is still acknowledged: nothing here acts on it, so a non-2xx would only make
+ * Svix retry a delivery it cannot fix.
+ */
+function acknowledge(res: Response): void {
+    res.status(200).json({ status: "received" });
+}
+
 function logDelivery({
     headers,
     payload,
@@ -93,40 +103,35 @@ kickWebhookRouter.post(
         const secret = config.kickWebhookSigningSecret;
 
         if (secret !== undefined) {
+            let payload: unknown;
             try {
-                logDelivery({
-                    headers,
-                    payload: new Webhook(secret).verify(rawBody, headers),
-                    signature: "verified",
-                });
-                res.status(200).json({ status: "received" });
+                payload = new Webhook(secret).verify(rawBody, headers);
             } catch (error) {
                 console.warn(
                     "[webhook] Rejected a delivery whose signature did not verify:",
                     error instanceof Error ? error.message : error,
                 );
                 res.status(400).json({ message: "Invalid webhook signature" });
+                return;
             }
+            logDelivery({ headers, payload, signature: "verified" });
+            acknowledge(res);
             return;
         }
 
         const body = parseJsonBody(rawBody);
-        if (!body.parsed) {
-            // Answering 200 anyway: nothing here acts on the payload, and a
-            // non-2xx would only make Svix retry a body it cannot fix.
+        if (body.parsed) {
+            logDelivery({
+                headers,
+                payload: body.payload,
+                signature: "unverified",
+            });
+        } else {
             console.warn(
                 "[webhook] Received a body that is not JSON:",
                 rawBody.slice(0, MAX_LOGGED_BODY_LENGTH),
             );
-            res.status(200).json({ status: "received" });
-            return;
         }
-
-        logDelivery({
-            headers,
-            payload: body.payload,
-            signature: "unverified",
-        });
-        res.status(200).json({ status: "received" });
+        acknowledge(res);
     },
 );
