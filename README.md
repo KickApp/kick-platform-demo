@@ -8,7 +8,8 @@ through the external Platform API.
 Opening a workspace gives four tabs: manage its entities, manage the Plaid
 connections the partner created (list, connect through Plaid Link, delete),
 read the workspace's transactions across every entity and recategorize them,
-and read an entity's accounting reports.
+and read an entity's accounting reports. The backend also receives Kick's
+webhooks and logs them — see [Webhooks](#webhooks).
 
 ## How it works
 
@@ -38,15 +39,16 @@ cp .env.example .env   # then set KICK_PLATFORM_API_TOKEN (skip if the env var i
 
 Configuration (env vars, or `.env` at the repo root):
 
-| Variable                  | Default                       | Purpose                                       |
-| ------------------------- | ----------------------------- | --------------------------------------------- |
-| `KICK_PLATFORM_API_TOKEN` | — (required)                  | `kick_org_...` organization access token      |
-| `KICK_API_BASE_URL`       | `https://use-dev.kick.co/api` | Kick API base (note the `/api` suffix)        |
-| `BACKEND_PORT`            | `4001`                        | Port for the BFF backend                      |
-| `PLAID_CLIENT_ID`         | — (optional)                  | Your Plaid client id, for the Plaid Link flow |
-| `PLAID_SECRET`            | — (optional)                  | Your Plaid secret for `PLAID_ENV`             |
-| `PLAID_ENV`               | `sandbox`                     | `sandbox` or `production`                     |
-| `PLAID_PRODUCTS`          | `transactions,auth`           | Products enabled on the linked Item           |
+| Variable                      | Default                       | Purpose                                       |
+| ----------------------------- | ----------------------------- | --------------------------------------------- |
+| `KICK_PLATFORM_API_TOKEN`     | — (required)                  | `kick_org_...` organization access token      |
+| `KICK_API_BASE_URL`           | `https://use-dev.kick.co/api` | Kick API base (note the `/api` suffix)        |
+| `BACKEND_PORT`                | `4001`                        | Port for the BFF backend                      |
+| `KICK_WEBHOOK_SIGNING_SECRET` | — (optional)                  | `whsec_...` secret of your webhook endpoint   |
+| `PLAID_CLIENT_ID`             | — (optional)                  | Your Plaid client id, for the Plaid Link flow |
+| `PLAID_SECRET`                | — (optional)                  | Your Plaid secret for `PLAID_ENV`             |
+| `PLAID_ENV`                   | `sandbox`                     | `sandbox` or `production`                     |
+| `PLAID_PRODUCTS`              | `transactions,auth`           | Products enabled on the linked Item           |
 
 Without the `PLAID_*` variables everything still works; only "New connection"
 on the Plaid connections tab is disabled, with a message saying so.
@@ -164,6 +166,58 @@ Deleting a connection also deletes its accounts and their transactions; a
 connection whose account carries manual journal entries answers `409`, which
 the UI surfaces verbatim.
 
+## Webhooks
+
+Kick reports things that happen outside an API call as webhooks — today only
+that a Plaid connection stopped syncing and the business owner has to reconnect
+it. This demo receives them at `POST /api/demo/v1/webhooks/kick` and does one
+thing with them: prints them. Nothing is stored and no resource is refetched, so
+no screen reacts to an incoming event.
+
+Configure the endpoint URL and copy its `whsec_...` signing secret in the Kick
+app under **Organization → API → Webhooks → Open portal**, then set
+`KICK_WEBHOOK_SIGNING_SECRET` and restart the backend. Kick has to be able to
+reach the endpoint, so a local backend needs a public tunnel — e.g.
+`ngrok http 4001`, registering
+`https://<subdomain>.ngrok.app/api/demo/v1/webhooks/kick`.
+
+Deliveries arrive [Svix-signed](https://docs.svix.com/receiving/verifying-payloads/how):
+the body is the bare event payload, and `svix-id`, `svix-timestamp` and
+`svix-signature` headers (or their `webhook-` prefixed aliases) sign the raw
+request bytes. With the secret set, a delivery whose signature does not verify
+is answered `400`; without it deliveries are still logged, marked
+`signature=unverified`, which is fine for a local replay and not something to
+point a real endpoint at.
+
+A logged delivery looks like this:
+
+```
+[webhook] plaid.connection.disconnected id=msg_2hT8kQ timestamp=2026-08-11T07:20:00.000Z signature=verified
+{
+  "version": 1,
+  "connectionId": "6f1c...",
+  "workspaceId": "b0a2...",
+  "entityId": "48d9...",
+  "bankName": "Mercury",
+  "errorCode": "disconnected",
+  "occurredAt": 1786520400
+}
+```
+
+The event name never crosses the wire: Kick sets it on the Svix message and
+sends the payload alone. The receiver therefore names an event by matching its
+shape against the schemas in `shared/src/schemas/webhook-event.schema.ts`. A
+payload matching none of them is logged as `unrecognized payload` and still
+answered `200` — that is what an event added upstream looks like from here.
+
+With `KICK_WEBHOOK_SIGNING_SECRET` unset you can replay a delivery yourself:
+
+```bash
+curl -s -X POST http://localhost:4001/api/demo/v1/webhooks/kick \
+  -H 'Content-Type: application/json' \
+  -d '{"version":1,"connectionId":"'"$(uuidgen)"'","workspaceId":"'"$(uuidgen)"'","entityId":"'"$(uuidgen)"'","bankName":"Mercury","errorCode":"disconnected","occurredAt":1786520400}'
+```
+
 ## Transactions and the chart of accounts
 
 A transaction's categorization is a field on the transaction itself:
@@ -197,7 +251,8 @@ requested on the cash basis.
 
 ```
 shared/    Vendored Platform API contract + Zod schemas (ts-rest), used by both sides
-backend/   Express BFF: authenticates to Kick, passes requests/errors through
+backend/   Express BFF: authenticates to Kick, passes requests/errors through,
+           logs incoming webhooks
 frontend/  React app: workspaces list/create, then per-workspace entities,
            Plaid connections, transactions and reports tabs
 ```

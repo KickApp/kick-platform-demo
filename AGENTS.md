@@ -43,6 +43,9 @@ that does not typecheck will fail CI.
   `PLAID_PRODUCTS`): the demo's own Plaid credentials for the Link flow. They
   are optional by design — `config.plaid` is `null` without them and only the
   Link flow switches off, so never make them `requireEnv`.
+- `KICK_WEBHOOK_SIGNING_SECRET` (optional): the `whsec_...` secret of a webhook
+  endpoint registered in Kick's webhooks portal. Optional for the same reason —
+  without it deliveries are logged unverified instead of refused.
 
 ## Architecture
 
@@ -82,6 +85,9 @@ plus a small demo-only contract for the Plaid Link flow:
   exist only here, implemented in `backend/src/plaid-link-router.ts`. Keep
   demo-only routes under `/demo/` and out of `platform.contract.ts` so the
   mirror stays a mirror.
+- The webhook receiver (`backend/src/webhook-router.ts`, mounted at
+  `/api/demo/v1/webhooks`) is the one route with no contract at all — see
+  [Receiving webhooks](#receiving-webhooks).
 
 ## The Plaid Link flow
 
@@ -103,6 +109,36 @@ the browser only ever holds a link token, and Kick only ever receives a
 processor token. Plaid SDK rejections are unwrapped by `toPlaidRequestError`
 into a readable 400 — without it the caller only sees "Request failed with
 status code 400".
+
+## Receiving webhooks
+
+`POST /api/demo/v1/webhooks/kick` logs the delivery and does nothing else: no
+persistence, no invalidation of a query cache, no refetch of the resource the
+event is about. Keep it that way unless the demo grows a story for what a
+partner should do with an event; "received something, printed it" is the whole
+point of the surface today.
+
+Three constraints hold it together:
+
+1. **It is mounted before `express.json()`** in `backend/src/index.ts`. Kick
+   signs the raw request bytes, and the global JSON parser would consume the
+   stream before `express.raw()` ever saw it. Adding middleware above it in
+   `index.ts` is fine; moving the JSON parser back to the top is not.
+2. **It is not a ts-rest route.** Validating the body against a contract would
+   reject an event Kick adds later, which is the opposite of logging whatever
+   arrives. Deliveries with an unknown payload shape are logged as
+   `unrecognized payload` and answered `200`.
+3. **Kick sends the payload with no envelope**, and the event name lives only on
+   the Svix message, so `identifyKickWebhookEvent` in
+   `shared/src/schemas/webhook-event.schema.ts` names an event by matching its
+   shape. Adding a new event means vendoring its payload schema there and
+   listing it in `KICK_WEBHOOK_EVENTS`; two events with structurally
+   indistinguishable payloads would need a real discriminator.
+
+Signature verification uses the `svix` package with
+`KICK_WEBHOOK_SIGNING_SECRET`, per-endpoint and rotatable in Kick's portal.
+Deliveries that fail it are answered `400` — the only non-2xx here, since a
+non-2xx just makes Svix retry.
 
 ## Source of truth for the API
 

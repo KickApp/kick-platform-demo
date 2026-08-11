@@ -54,6 +54,12 @@ export const config = {
     kickApiBaseUrl:
         process.env.KICK_API_BASE_URL ?? "https://use-dev.kick.co/api",
     kickPlatformApiToken: requireEnv("KICK_PLATFORM_API_TOKEN"),
+    /**
+     * Signing secret of one webhook endpoint, from Kick's webhooks portal.
+     * Optional like the Plaid credentials: without it deliveries are still
+     * logged, just unverified, which keeps a fresh checkout useful.
+     */
+    kickWebhookSigningSecret: optionalEnv("KICK_WEBHOOK_SIGNING_SECRET"),
     port: Number(process.env.BACKEND_PORT ?? 4001),
     plaid: readPlaidConfig(),
 };
@@ -70,5 +76,13 @@ if (config.plaid === null) {
     console.warn(
         "PLAID_CLIENT_ID / PLAID_SECRET are not set, so the Plaid Link flow is " +
             "disabled. Everything else works; see .env.example.",
+    );
+}
+
+if (config.kickWebhookSigningSecret === undefined) {
+    console.warn(
+        "KICK_WEBHOOK_SIGNING_SECRET is not set, so incoming webhooks are " +
+            "logged without verifying their signature. Do not run a real " +
+            "endpoint that way; see .env.example.",
     );
 }
