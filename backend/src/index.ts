@@ -6,9 +6,11 @@ import { config } from "./config";
 import { UpstreamError } from "./kick-client";
 import { plaidLinkRouter } from "./plaid-link-router";
 import { platformRouter } from "./router";
+import { kickWebhookRouter } from "./webhook-router";
+
+const WEBHOOKS_PATH = "/api/demo/v1/webhooks";
 
 const app = express();
-app.use(express.json());
 
 // Express generates weak ETags for res.json bodies, which turns repeat reads
 // into 304s served from the browser cache. This demo always shows live data
@@ -25,6 +27,12 @@ app.use((req, res, next) => {
     });
     next();
 });
+
+// Ahead of express.json(): Kick's webhook signatures cover the raw request
+// bytes, which a JSON parse would consume before the receiver ever sees them.
+app.use(WEBHOOKS_PATH, kickWebhookRouter);
+
+app.use(express.json());
 
 app.get("/healthz", (_req, res) => {
     res.json({ status: "ok", upstream: config.kickApiBaseUrl });
@@ -68,4 +76,8 @@ app.listen(config.port, () => {
         `Kick Platform demo BFF listening on http://localhost:${config.port}`,
     );
     console.log(`Proxying Platform API requests to ${config.kickApiBaseUrl}`);
+    console.log(
+        `Logging Kick webhooks posted to ${WEBHOOKS_PATH}/kick (point your ` +
+            "endpoint in Kick's webhooks portal at a public tunnel to it)",
+    );
 });

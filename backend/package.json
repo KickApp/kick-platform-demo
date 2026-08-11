@@ -15,6 +15,7 @@
         "dotenv": "^16.5.0",
         "express": "^4.21.2",
         "plaid": "^45.0.0",
+        "svix": "^1.98.0",
         "zod": "^3.24.4"
     },
     "devDependencies": {
