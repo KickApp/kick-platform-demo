@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+    CHART_OF_ACCOUNTS_SETUP_HINTS,
+    CHART_OF_ACCOUNTS_SETUP_LABELS,
+    CHART_OF_ACCOUNTS_SETUP_TYPES,
     ENTITY_LEGAL_TYPES,
     ENTITY_LEGAL_TYPE_LABELS,
+    type ChartOfAccountsSetupType,
     type EntityLegalType,
 } from "@kick-demo/shared";
 import { createEntity } from "../api/platform";
@@ -22,6 +26,8 @@ export function CreateEntityForm({
     const [bookkeepingStartDate, setBookkeepingStartDate] = useState(
         previousYearStartIsoDate(),
     );
+    const [chartOfAccounts, setChartOfAccounts] =
+        useState<ChartOfAccountsSetupType>("standard");
 
     const mutation = useMutation({
         mutationFn: createEntity,
@@ -43,6 +49,7 @@ export function CreateEntityForm({
                     name: name.trim(),
                     legalType,
                     bookkeepingStartDate,
+                    chartOfAccounts: { type: chartOfAccounts },
                 });
             }}
         >
@@ -89,6 +96,29 @@ export function CreateEntityForm({
                     }
                     required
                 />
+            </label>
+            <label className="field">
+                <span className="field-label">Chart of accounts</span>
+                <select
+                    value={chartOfAccounts}
+                    onChange={(event) => {
+                        const selected = CHART_OF_ACCOUNTS_SETUP_TYPES.find(
+                            (type) => type === event.target.value,
+                        );
+                        if (selected) {
+                            setChartOfAccounts(selected);
+                        }
+                    }}
+                >
+                    {CHART_OF_ACCOUNTS_SETUP_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                            {CHART_OF_ACCOUNTS_SETUP_LABELS[type]}
+                        </option>
+                    ))}
+                </select>
+                <span className="field-hint">
+                    {CHART_OF_ACCOUNTS_SETUP_HINTS[chartOfAccounts]}
+                </span>
             </label>
             {mutation.error !== null && (
                 <ErrorMessageBox error={mutation.error} />
