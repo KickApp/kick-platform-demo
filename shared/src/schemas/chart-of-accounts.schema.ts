@@ -30,8 +30,6 @@ export const ACCOUNT_TYPES = [
     "Operating Expenses",
     "Other Income",
     "Other Expenses",
-    "Tax Expenses",
-    "Prepaid Expenses",
 ] as const;
 
 export const accountTypeSchema = z.enum(ACCOUNT_TYPES);
@@ -50,6 +48,35 @@ export const ACCOUNT_CLASSES = [
 export const accountClassSchema = z.enum(ACCOUNT_CLASSES);
 
 export type AccountClass = z.infer<typeof accountClassSchema>;
+
+/**
+ * An account's class is derived from its type by Kick and is never sent on a
+ * write, so a form offering account types has to know the rollup itself to
+ * group them. Mirrors the upstream type-to-class map.
+ */
+export const ACCOUNT_TYPE_CLASSES: Record<AccountType, AccountClass> = {
+    Cash: "Assets",
+    "Accounts Receivable": "Assets",
+    Inventory: "Assets",
+    "Other Current Assets": "Assets",
+    Investments: "Assets",
+    "Fixed Assets": "Assets",
+    "Intangible Assets": "Assets",
+    "Other Assets": "Assets",
+    "Accounts Payable": "Liabilities",
+    "Credit Cards": "Liabilities",
+    "Payroll Liabilities": "Liabilities",
+    "Short-Term Loans": "Liabilities",
+    "Other Current Liabilities": "Liabilities",
+    "Long-Term Loans": "Liabilities",
+    "Other Liabilities": "Liabilities",
+    Equity: "Equity",
+    Income: "Income",
+    COGS: "Expenses",
+    "Operating Expenses": "Expenses",
+    "Other Income": "Income",
+    "Other Expenses": "Expenses",
+};
 
 /**
  * Wire shape of a Platform API account. `code` is the human-facing account
@@ -73,6 +100,11 @@ export const platformChartOfAccountsPathParamsSchema = z.object({
     entityId: z.string().uuid(),
 });
 
+export const platformAccountPathParamsSchema =
+    platformChartOfAccountsPathParamsSchema.extend({
+        accountId: z.string().uuid(),
+    });
+
 export const platformChartOfAccountsListQuerySchema =
     platformPaginationQuerySchema;
 
@@ -87,4 +119,59 @@ export const platformChartOfAccountsListResponseSchema = z.object({
 
 export type PlatformChartOfAccountsListResponse = z.infer<
     typeof platformChartOfAccountsListResponseSchema
+>;
+
+export const platformAccountResponseSchema = z.object({
+    account: platformAccountSchema,
+});
+
+export type PlatformAccountResponse = z.infer<
+    typeof platformAccountResponseSchema
+>;
+
+export const PLATFORM_BULK_CREATE_ACCOUNTS_MAX_ITEMS = 100;
+
+/**
+ * Write payloads mirror the read shape: `code` is the human-facing display
+ * code, and the subtype is never exposed — Kick assigns the type's default.
+ * Omitting `code` lets Kick allocate the next one in the type's range.
+ */
+const platformCreateAccountItemSchema = z.object({
+    name: z.string().trim().min(1).max(200),
+    type: accountTypeSchema,
+    code: z.string().trim().min(1).max(20).optional(),
+});
+
+export const platformCreateAccountBodySchema = platformCreateAccountItemSchema;
+
+export type PlatformCreateAccountBody = z.infer<
+    typeof platformCreateAccountBodySchema
+>;
+
+export const platformBulkCreateAccountsBodySchema = z.object({
+    accounts: z
+        .array(platformCreateAccountItemSchema)
+        .min(1)
+        .max(PLATFORM_BULK_CREATE_ACCOUNTS_MAX_ITEMS),
+});
+
+export type PlatformBulkCreateAccountsBody = z.infer<
+    typeof platformBulkCreateAccountsBodySchema
+>;
+
+export const platformBulkCreateAccountsResponseSchema = z.object({
+    data: z.array(platformAccountSchema),
+});
+
+export type PlatformBulkCreateAccountsResponse = z.infer<
+    typeof platformBulkCreateAccountsResponseSchema
+>;
+
+/** An account's type, class and code are fixed once it exists. */
+export const platformUpdateAccountBodySchema = z.object({
+    name: z.string().trim().min(1).max(200),
+});
+
+export type PlatformUpdateAccountBody = z.infer<
+    typeof platformUpdateAccountBodySchema
 >;

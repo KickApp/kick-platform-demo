@@ -113,6 +113,58 @@ export const platformRouter = s.router(platformContract, {
             }
             return forwardUpstreamError(result);
         },
+        create: async ({ params, body }) => {
+            const result = await kickClient.chartOfAccounts.create({
+                params,
+                body,
+            });
+            if (result.status === 201) {
+                return { status: 201, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        bulkCreate: async ({ params, body }) => {
+            const result = await kickClient.chartOfAccounts.bulkCreate({
+                params,
+                body,
+            });
+            if (result.status === 201) {
+                return { status: 201, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        update: async ({ params, body }) => {
+            const result = await kickClient.chartOfAccounts.update({
+                params,
+                body,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        disable: async ({ params }) => {
+            const result = await kickClient.chartOfAccounts.disable({ params });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        enable: async ({ params }) => {
+            const result = await kickClient.chartOfAccounts.enable({ params });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        // The upstream 200 carries no body, so neither does this one.
+        delete: async ({ params }) => {
+            const result = await kickClient.chartOfAccounts.delete({ params });
+            if (result.status === 200) {
+                return { status: 200, body: undefined };
+            }
+            return forwardUpstreamError(result);
+        },
     },
     reports: {
         profitAndLoss: async ({ params, query }) => {

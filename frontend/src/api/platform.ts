@@ -5,7 +5,10 @@ import {
     type CreatePlatformEntityBody,
     type CreatePlatformWorkspaceBody,
     type PlatformAccount,
+    type PlatformBulkCreateAccountsBody,
+    type PlatformCreateAccountBody,
     type PlatformTransactionUpdateBody,
+    type PlatformUpdateAccountBody,
     type ReportGroupBy,
 } from "@kick-demo/shared";
 import { toApiError } from "./errors";
@@ -165,6 +168,110 @@ export async function fetchAllChartOfAccounts(
         offset += PLATFORM_PAGE_LIMIT_MAX;
     } while (accounts.length < total);
     return accounts;
+}
+
+export async function createAccount({
+    entityId,
+    body,
+}: {
+    entityId: string;
+    body: PlatformCreateAccountBody;
+}) {
+    const result = await api.chartOfAccounts.create({
+        params: { entityId },
+        body,
+    });
+    if (result.status === 201) {
+        return result.body.account;
+    }
+    throw toApiError(result);
+}
+
+/** Atomic upstream: a batch that fails validation creates nothing. */
+export async function bulkCreateAccounts({
+    entityId,
+    body,
+}: {
+    entityId: string;
+    body: PlatformBulkCreateAccountsBody;
+}) {
+    const result = await api.chartOfAccounts.bulkCreate({
+        params: { entityId },
+        body,
+    });
+    if (result.status === 201) {
+        return result.body.data;
+    }
+    throw toApiError(result);
+}
+
+/** Renaming is the only update: type, class and code are fixed on creation. */
+export async function updateAccount({
+    entityId,
+    accountId,
+    body,
+}: {
+    entityId: string;
+    accountId: string;
+    body: PlatformUpdateAccountBody;
+}) {
+    const result = await api.chartOfAccounts.update({
+        params: { entityId, accountId },
+        body,
+    });
+    if (result.status === 200) {
+        return result.body.account;
+    }
+    throw toApiError(result);
+}
+
+export async function disableAccount({
+    entityId,
+    accountId,
+}: {
+    entityId: string;
+    accountId: string;
+}) {
+    const result = await api.chartOfAccounts.disable({
+        params: { entityId, accountId },
+    });
+    if (result.status === 200) {
+        return result.body.account;
+    }
+    throw toApiError(result);
+}
+
+export async function enableAccount({
+    entityId,
+    accountId,
+}: {
+    entityId: string;
+    accountId: string;
+}) {
+    const result = await api.chartOfAccounts.enable({
+        params: { entityId, accountId },
+    });
+    if (result.status === 200) {
+        return result.body.account;
+    }
+    throw toApiError(result);
+}
+
+/** Answers 409 once the account has journal entries; archive it instead. */
+export async function deleteAccount({
+    entityId,
+    accountId,
+}: {
+    entityId: string;
+    accountId: string;
+}) {
+    const result = await api.chartOfAccounts.delete({
+        params: { entityId, accountId },
+    });
+    if (result.status === 200) {
+        return;
+    }
+    throw toApiError(result);
 }
 
 /**
