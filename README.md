@@ -83,7 +83,7 @@ curl -s "http://localhost:4001/api/platform/v1/workspaces?limit=10"
 # Create a workspace
 curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces" \
   -H "Content-Type: application/json" \
-  -d '{"name": "Acme Inc.", "bookkeepingStartDate": "2026-01-01"}'
+  -d '{"name": "Acme Inc."}'
 
 # List entities of a workspace
 curl -s "http://localhost:4001/api/platform/v1/entities?workspaceId=<uuid>"
