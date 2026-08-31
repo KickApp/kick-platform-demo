@@ -5,7 +5,8 @@ small Express BFF backend covering **workspaces**, **entities**, **Plaid
 connections**, **transactions**, the **chart of accounts** and **reports**
 through the external Platform API.
 
-Opening a workspace gives four tabs: manage its entities, manage the Plaid
+Opening a workspace gives five tabs: manage its entities, manage an entity's
+chart of accounts (create, rename, archive, delete), manage the Plaid
 connections the partner created (list, connect through Plaid Link, delete),
 read the workspace's transactions across every entity and recategorize them,
 and read an entity's accounting reports. The backend also receives Kick's
@@ -88,10 +89,11 @@ curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces" \
 # List entities of a workspace
 curl -s "http://localhost:4001/api/platform/v1/entities?workspaceId=<uuid>"
 
-# Create an entity
+# Create an entity. chartOfAccounts is optional and defaults to "standard";
+# "custom" seeds only the accounts Kick automations require
 curl -s -X POST "http://localhost:4001/api/platform/v1/entities" \
   -H "Content-Type: application/json" \
-  -d '{"workspaceId": "<uuid>", "name": "Acme LLC", "legalType": "smllc", "bookkeepingStartDate": "2026-01-01"}'
+  -d '{"workspaceId": "<uuid>", "name": "Acme LLC", "legalType": "smllc", "bookkeepingStartDate": "2026-01-01", "chartOfAccounts": {"type": "custom"}}'
 
 # List the Plaid connections of a workspace (optionally narrowed to entities)
 curl -s "http://localhost:4001/api/platform/v1/plaid-connections?workspaceId=<uuid>&entityIds=<uuid>"
@@ -115,6 +117,28 @@ curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transa
 
 # List an entity's chart of accounts (archived accounts included, flagged isDisabled)
 curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts?limit=100"
+
+# Create an account (code is optional; Kick allocates one in the type's range)
+curl -s -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Software Subscriptions", "type": "Operating Expenses"}'
+
+# Create up to 100 accounts in one atomic call
+curl -s -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts/bulk" \
+  -H "Content-Type: application/json" \
+  -d '{"accounts": [{"name": "Consulting Revenue", "type": "Income"}, {"name": "Contractors", "type": "COGS"}]}'
+
+# Rename an account (the only update; type, class and code are fixed on creation)
+curl -s -X PATCH "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts/<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Software & SaaS"}'
+
+# Archive and restore an account
+curl -s -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts/<uuid>/disable"
+curl -s -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts/<uuid>/enable"
+
+# Delete an account (409 once it has journal entries — archive it instead)
+curl -s -X DELETE "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts/<uuid>"
 
 # Reports for an entity: profit-and-loss, balance-sheet, cash-flow, trial-balance
 curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/reports/profit-and-loss?startDate=2026-01-01&endDate=2026-12-31&ledgerBasis=cash&groupBy=month"
@@ -218,6 +242,36 @@ curl -s -X POST http://localhost:4001/api/demo/v1/webhooks/kick \
   -d '{"version":1,"connectionId":"'"$(uuidgen)"'","workspaceId":"'"$(uuidgen)"'","entityId":"'"$(uuidgen)"'","bankName":"Mercury","errorCode":"disconnected","occurredAt":1786520400}'
 ```
 
+## Managing the chart of accounts
+
+A chart of accounts belongs to one entity, so the tab picks one and lists its
+accounts grouped by class. New accounts are created one at a time, or in bulk
+by pasting a block where each line reads `Name, Type` with an optional trailing
+code. The fields are read from the right, because an account name may itself
+contain commas while a Kick account type never does — so
+`Meals, Entertainment, Operating Expenses, 6420` parses as the name "Meals,
+Entertainment", the type "Operating Expenses" and the code `6420`. Leaving the
+code off lets Kick allocate the next one in the type's range. The bulk call is
+atomic: if Kick rejects any account in the batch, none are created.
+
+An existing account accepts three writes, and which of them a given account
+allows is not visible on the wire, so all three are always offered and Kick's
+own message is shown when it declines:
+
+- **Rename** is the only update — an account's type, class and code are fixed
+  once it exists. Renaming an account Kick seeded answers `400`.
+- **Archive** (`disable`) and **Restore** (`enable`) retire an account without
+  losing history. Archived accounts stay in the listing flagged `isDisabled`
+  and drop out of the transactions tab's picker. Role-holder accounts and
+  accounts tied to a financial account cannot be archived.
+- **Delete** is permanent and answers `409` once the account carries journal
+  entries; archiving is the way to retire those.
+
+An entity created with a custom chart of accounts starts with only the accounts
+Kick automations require — clearing accounts, uncategorized income and
+expenses. Kick seeds them lazily, so they appear the first time this tab reads
+the chart.
+
 ## Transactions and the chart of accounts
 
 A transaction's categorization is a field on the transaction itself:
@@ -254,7 +308,7 @@ shared/    Vendored Platform API contract + Zod schemas (ts-rest), used by both 
 backend/   Express BFF: authenticates to Kick, passes requests/errors through,
            logs incoming webhooks
 frontend/  React app: workspaces list/create, then per-workspace entities,
-           Plaid connections, transactions and reports tabs
+           chart of accounts, Plaid connections, transactions and reports tabs
 ```
 
 See [AGENTS.md](AGENTS.md) for a guide aimed at coding agents extending this

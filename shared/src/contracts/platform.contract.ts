@@ -62,8 +62,9 @@ const c = initContract();
  *
  * Error responses are declared as the superset {400, 401, 404, 409, 429} on
  * every route so the BFF can pass upstream errors through uniformly. Deleting
- * a Plaid connection and updating a transaction inside a locked bookkeeping
- * period are the two routes that actually answer 409 today.
+ * a Plaid connection, updating a transaction inside a locked bookkeeping
+ * period and deleting an account that has journal entries are the three routes
+ * that actually answer 409 today.
  */
 const errorResponses = {
     400: errorMessageSchema,
