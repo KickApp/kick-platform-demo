@@ -41,7 +41,6 @@ export type PlatformWorkspaceResponse = z.infer<
 
 export const createPlatformWorkspaceBodySchema = z.object({
     name: z.string().min(1).max(200),
-    bookkeepingStartDate: z.string().date(),
 });
 
 export type CreatePlatformWorkspaceBody = z.infer<
