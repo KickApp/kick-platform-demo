@@ -287,7 +287,9 @@ tbody tr:hover {
 }
 
 .cell-error {
+    display: block;
     max-width: 260px;
+    margin-top: 4px;
     color: var(--danger-text);
     font-size: 12px;
     white-space: normal;

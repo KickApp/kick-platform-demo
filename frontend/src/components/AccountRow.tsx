@@ -63,6 +63,13 @@ export function AccountRow({
             setIsRenaming(false);
             await invalidate();
         },
+        // A refused write is refused for good — a Kick default will never take
+        // a new name — so drop the edit and leave the reason on the row rather
+        // than holding a doomed value that a later blur would resubmit.
+        onError: () => {
+            setIsRenaming(false);
+            setName(account.name);
+        },
     });
 
     const submitRename = () => {
@@ -106,11 +113,17 @@ export function AccountRow({
                             type="button"
                             className="cell-button"
                             disabled={mutation.isPending}
-                            onClick={() => setIsRenaming(true)}
+                            onClick={() => {
+                                mutation.reset();
+                                setIsRenaming(true);
+                            }}
                         >
                             {account.name}
                         </button>
                     </div>
+                )}
+                {mutation.error !== null && (
+                    <span className="cell-error">{mutation.error.message}</span>
                 )}
             </td>
             <td>{account.type}</td>
@@ -154,9 +167,6 @@ export function AccountRow({
                         </>
                     )}
                 </div>
-                {mutation.error !== null && (
-                    <span className="cell-error">{mutation.error.message}</span>
-                )}
             </td>
         </tr>
     );
