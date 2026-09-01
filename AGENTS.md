@@ -68,10 +68,10 @@ plus a small demo-only contract for the Plaid Link flow:
   `http://host.docker.internal:4001` when running inside Docker).
 - Handlers are pure pass-through. Declared upstream errors
   (400/401/404/409/429) are forwarded verbatim; anything undeclared becomes a
-  502 via `UpstreamError`. Deleting a Plaid connection and updating a
-  transaction inside a locked bookkeeping period are the only routes that
-  answer 409 today, but the contract declares the same error superset on every
-  route. Kick answers a malformed request with a ts-rest validation envelope
+  502 via `UpstreamError`. Deleting a Plaid connection, updating a transaction
+  inside a locked bookkeeping period and deleting an account that has journal
+  entries are the only routes that answer 409 today, but the contract declares
+  the same error superset on every route. Kick answers a malformed request with a ts-rest validation envelope
   rather than `{ message }`, so `forwardUpstreamError` unwraps that into a
   readable 400 — without it a plain "startDate must be on or before endDate"
   reaches the caller as an opaque 502.
@@ -155,6 +155,14 @@ That is the trade for catching drift early; the enums to watch are the account
 types and classes in `chart-of-accounts.schema.ts` and the report section enums
 in `report.schema.ts`.
 
+Drift cuts the other way too, and more quietly: an extra value here only breaks
+once something writes it. `ACCOUNT_TYPES` carried two types Kick does not have
+while the chart was read-only, which went unnoticed until they reached a create
+form. `ACCOUNT_TYPE_CLASSES` alongside it is the one piece of derived knowledge
+vendored rather than read off the wire — Kick derives an account's class from
+its type and never accepts it on a write, so a form offering types has to know
+the rollup to group them.
+
 ## Vendored resources and deliberate gaps
 
 Six resources are vendored: workspaces, entities, Plaid connections,
@@ -163,9 +171,13 @@ intentionally left out:
 
 - Transactions: `list` and `update`. The upstream `get` is not vendored — the
   listing already carries the whole row.
-- Chart of accounts: `list` only. The demo reads the chart to show and pick
-  account names and never edits it, so `get`, `create`, `bulkCreate`,
-  `update`, `disable`, `enable` and `delete` are all left out.
+- Chart of accounts: everything except `get`, for the same reason as
+  transactions — the listing already carries the whole row. Note the asymmetry
+  in the write surface: `update` renames and nothing else (type, class and code
+  are fixed on creation), `disable`/`enable` archive and restore, and `delete`
+  is permanent but answers 409 once the account has journal entries. The wire
+  shape carries no flag for which accounts refuse which write, so the UI offers
+  all three and surfaces Kick's message when it declines.
 - Plaid: the Platform API's `create` takes a `processor_token` and has no
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is

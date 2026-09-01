@@ -11,6 +11,7 @@ import type { WorkspaceOutletContext } from "../lib/workspace-context";
 
 const TABS = [
     { path: "entities", label: "Entities" },
+    { path: "chart-of-accounts", label: "Chart of accounts" },
     { path: "plaid-connections", label: "Plaid connections" },
     { path: "transactions", label: "Transactions" },
     { path: "reports", label: "Reports" },

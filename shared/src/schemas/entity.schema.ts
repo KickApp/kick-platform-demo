@@ -76,11 +76,47 @@ export type PlatformEntityResponse = z.infer<
     typeof platformEntityResponseSchema
 >;
 
+/**
+ * Chart of accounts setup for a new entity, defaulting to `standard` when
+ * omitted. `custom` seeds only the accounts Kick automations require —
+ * clearing accounts, uncategorized income and expenses — and leaves the rest
+ * of the chart to be created through the chart of accounts routes.
+ */
+export const CHART_OF_ACCOUNTS_SETUP_TYPES = ["standard", "custom"] as const;
+
+export const platformChartOfAccountsSetupSchema = z.discriminatedUnion("type", [
+    z.object({ type: z.literal("standard") }),
+    z.object({ type: z.literal("custom") }),
+]);
+
+export type PlatformChartOfAccountsSetup = z.infer<
+    typeof platformChartOfAccountsSetupSchema
+>;
+
+export type ChartOfAccountsSetupType = PlatformChartOfAccountsSetup["type"];
+
+export const CHART_OF_ACCOUNTS_SETUP_LABELS: Record<
+    ChartOfAccountsSetupType,
+    string
+> = {
+    standard: "Standard Kick chart",
+    custom: "Custom chart",
+};
+
+export const CHART_OF_ACCOUNTS_SETUP_HINTS: Record<
+    ChartOfAccountsSetupType,
+    string
+> = {
+    standard: "Seeds the full standard Kick chart of accounts.",
+    custom: "Seeds only the accounts Kick automations require; you create the rest yourself.",
+};
+
 export const createPlatformEntityBodySchema = z.object({
     workspaceId: z.string().uuid(),
     name: z.string().min(1).max(200),
     legalType: entityLegalTypeSchema,
     bookkeepingStartDate: z.string().date(),
+    chartOfAccounts: platformChartOfAccountsSetupSchema.optional(),
 });
 
 export type CreatePlatformEntityBody = z.infer<

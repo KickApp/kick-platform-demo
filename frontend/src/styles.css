@@ -287,14 +287,27 @@ tbody tr:hover {
 }
 
 .cell-error {
+    display: block;
     max-width: 260px;
+    margin-top: 4px;
     color: var(--danger-text);
     font-size: 12px;
     white-space: normal;
 }
 
-.cell-editor select {
+.cell-editor select,
+.cell-editor input {
     min-width: 240px;
+}
+
+.row-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.row-actions .button {
+    padding: 5px 10px;
+    font-size: 13px;
 }
 
 .connection-card {
@@ -393,6 +406,12 @@ tbody tr:hover {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+.field-error {
+    margin: 0 0 6px;
+    color: var(--danger-text);
+    font-size: 13px;
+}
+
 .filter-bar {
     display: flex;
     flex-wrap: wrap;
@@ -408,7 +427,8 @@ tbody tr:hover {
 }
 
 input,
-select {
+select,
+textarea {
     width: 100%;
     padding: 8px 10px;
     border: 1px solid var(--border);
@@ -419,8 +439,16 @@ select {
     color: var(--text);
 }
 
+textarea {
+    resize: vertical;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
     outline: 2px solid var(--accent);
     outline-offset: -1px;
     border-color: var(--accent);

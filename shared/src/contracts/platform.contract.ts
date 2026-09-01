@@ -2,9 +2,15 @@ import { initContract } from "@ts-rest/core";
 import { errorMessageSchema } from "../schemas/error.schema";
 import { platformPaginationQuerySchema } from "../schemas/pagination.schema";
 import {
+    platformAccountPathParamsSchema,
+    platformAccountResponseSchema,
+    platformBulkCreateAccountsBodySchema,
+    platformBulkCreateAccountsResponseSchema,
     platformChartOfAccountsListQuerySchema,
     platformChartOfAccountsListResponseSchema,
     platformChartOfAccountsPathParamsSchema,
+    platformCreateAccountBodySchema,
+    platformUpdateAccountBodySchema,
 } from "../schemas/chart-of-accounts.schema";
 import {
     createPlatformEntityBodySchema,
@@ -56,8 +62,9 @@ const c = initContract();
  *
  * Error responses are declared as the superset {400, 401, 404, 409, 429} on
  * every route so the BFF can pass upstream errors through uniformly. Deleting
- * a Plaid connection and updating a transaction inside a locked bookkeeping
- * period are the two routes that actually answer 409 today.
+ * a Plaid connection, updating a transaction inside a locked bookkeeping
+ * period and deleting an account that has journal entries are the three routes
+ * that actually answer 409 today.
  */
 const errorResponses = {
     400: errorMessageSchema,
@@ -208,8 +215,11 @@ const transactionsContract = c.router(
 
 /**
  * A chart of accounts belongs to a single entity, so the route is nested under
- * the entity uuid. Only listing is vendored: the demo reads the chart to show
- * and pick account names, and never edits it.
+ * the entity uuid. Retrieving a single account is not vendored: the listing
+ * already carries the whole row. `update` renames and nothing else — an
+ * account's type, class and code are fixed once it exists — and an account
+ * with journal entries answers 409 on delete, so `disable` archives it
+ * instead.
  */
 const chartOfAccountsContract = c.router(
     {
@@ -220,6 +230,66 @@ const chartOfAccountsContract = c.router(
             query: platformChartOfAccountsListQuerySchema,
             responses: {
                 200: platformChartOfAccountsListResponseSchema,
+                ...errorResponses,
+            },
+        },
+        create: {
+            method: "POST",
+            path: "",
+            pathParams: platformChartOfAccountsPathParamsSchema,
+            body: platformCreateAccountBodySchema,
+            responses: {
+                201: platformAccountResponseSchema,
+                ...errorResponses,
+            },
+        },
+        bulkCreate: {
+            method: "POST",
+            path: "/bulk",
+            pathParams: platformChartOfAccountsPathParamsSchema,
+            body: platformBulkCreateAccountsBodySchema,
+            responses: {
+                201: platformBulkCreateAccountsResponseSchema,
+                ...errorResponses,
+            },
+        },
+        update: {
+            method: "PATCH",
+            path: "/:accountId",
+            pathParams: platformAccountPathParamsSchema,
+            body: platformUpdateAccountBodySchema,
+            responses: {
+                200: platformAccountResponseSchema,
+                ...errorResponses,
+            },
+        },
+        disable: {
+            method: "POST",
+            path: "/:accountId/disable",
+            pathParams: platformAccountPathParamsSchema,
+            body: c.noBody(),
+            responses: {
+                200: platformAccountResponseSchema,
+                ...errorResponses,
+            },
+        },
+        enable: {
+            method: "POST",
+            path: "/:accountId/enable",
+            pathParams: platformAccountPathParamsSchema,
+            body: c.noBody(),
+            responses: {
+                200: platformAccountResponseSchema,
+                ...errorResponses,
+            },
+        },
+        delete: {
+            method: "DELETE",
+            path: "/:accountId",
+            pathParams: platformAccountPathParamsSchema,
+            body: c.noBody(),
+            responses: {
+                200: c.noBody(),
                 ...errorResponses,
             },
         },

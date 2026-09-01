@@ -1,5 +1,5 @@
 import { useQueries } from "@tanstack/react-query";
-import type { PlatformAccount } from "@kick-demo/shared";
+import { ACCOUNT_CLASSES, type PlatformAccount } from "@kick-demo/shared";
 import { fetchAllChartOfAccounts } from "../api/platform";
 
 /**
@@ -39,4 +39,16 @@ export function formatAccountLabel(account: PlatformAccount): string {
     return account.code !== null
         ? `${account.code} — ${account.name}`
         : account.name;
+}
+
+/**
+ * A chart of accounts is long, so both the account picker and the management
+ * table group it by class, in the balance-sheet-then-income-statement order
+ * the classes are declared in.
+ */
+export function groupAccountsByClass(accounts: PlatformAccount[]) {
+    return ACCOUNT_CLASSES.map((accountClass) => ({
+        accountClass,
+        accounts: accounts.filter((account) => account.class === accountClass),
+    })).filter((group) => group.accounts.length > 0);
 }

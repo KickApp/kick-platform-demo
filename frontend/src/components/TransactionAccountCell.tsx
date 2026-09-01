@@ -1,26 +1,13 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-    ACCOUNT_CLASSES,
-    type PlatformAccount,
-    type PlatformTransaction,
-} from "@kick-demo/shared";
+import type { PlatformAccount, PlatformTransaction } from "@kick-demo/shared";
 import { updateTransaction } from "../api/platform";
-import { formatAccountLabel } from "../lib/use-entity-accounts";
+import {
+    formatAccountLabel,
+    groupAccountsByClass,
+} from "../lib/use-entity-accounts";
 
 const UNCATEGORIZED_VALUE = "";
-
-/**
- * The chart of accounts is long, so the picker groups it the way the app does:
- * by account class, in the balance-sheet-then-income-statement order the
- * classes are declared in.
- */
-function groupByClass(accounts: PlatformAccount[]) {
-    return ACCOUNT_CLASSES.map((accountClass) => ({
-        accountClass,
-        accounts: accounts.filter((account) => account.class === accountClass),
-    })).filter((group) => group.accounts.length > 0);
-}
 
 /**
  * Shows the chart of accounts account a transaction is categorized to on the
@@ -94,7 +81,7 @@ export function TransactionAccountCell({
                     onBlur={() => setIsEditing(false)}
                 >
                     <option value={UNCATEGORIZED_VALUE}>Uncategorized</option>
-                    {groupByClass(selectableAccounts).map((group) => (
+                    {groupAccountsByClass(selectableAccounts).map((group) => (
                         <optgroup
                             key={group.accountClass}
                             label={group.accountClass}
