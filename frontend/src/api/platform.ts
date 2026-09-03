@@ -7,11 +7,12 @@ import {
     type PlatformAccount,
     type PlatformBulkCreateAccountsBody,
     type PlatformCreateAccountBody,
+    type PlatformMergeAccountsBody,
     type PlatformTransactionUpdateBody,
     type PlatformUpdateAccountBody,
     type ReportGroupBy,
 } from "@kick-demo/shared";
-import { toApiError } from "./errors";
+import { ApiError, toApiError } from "./errors";
 
 /**
  * Client against the demo BFF, which mirrors the Kick Platform API contract
@@ -270,6 +271,37 @@ export async function deleteAccount({
     });
     if (result.status === 200) {
         return;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Merges the source account into the target and deletes the source. A merge
+ * blocked by the accounts' state answers 409 with structured blockers, which
+ * are folded into the error message so the form can show why Kick declined.
+ */
+export async function mergeAccounts({
+    entityId,
+    body,
+}: {
+    entityId: string;
+    body: PlatformMergeAccountsBody;
+}) {
+    const result = await api.chartOfAccounts.merge({
+        params: { entityId },
+        body,
+    });
+    if (result.status === 200) {
+        return result.body.account;
+    }
+    if (result.status === 409) {
+        const reasons = result.body.blockers
+            .map((blocker) => blocker.message)
+            .join("; ");
+        throw new ApiError(
+            result.status,
+            reasons !== "" ? reasons : result.body.message,
+        );
     }
     throw toApiError(result);
 }

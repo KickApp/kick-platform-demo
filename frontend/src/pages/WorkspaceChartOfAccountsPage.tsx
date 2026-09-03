@@ -4,6 +4,7 @@ import { fetchAllChartOfAccounts } from "../api/platform";
 import { BulkCreateAccountsForm } from "../components/BulkCreateAccountsForm";
 import { ChartOfAccountsTable } from "../components/ChartOfAccountsTable";
 import { CreateAccountForm } from "../components/CreateAccountForm";
+import { MergeAccountsForm } from "../components/MergeAccountsForm";
 import {
     EmptyMessage,
     ErrorMessageBox,
@@ -12,7 +13,7 @@ import {
 import { useWorkspaceEntities } from "../lib/use-workspace-entities";
 import { useWorkspaceContext } from "../lib/workspace-context";
 
-type OpenForm = "none" | "single" | "bulk";
+type OpenForm = "none" | "single" | "bulk" | "merge";
 
 /**
  * A chart of accounts belongs to one entity, so the tab picks one the way the
@@ -69,6 +70,16 @@ export function WorkspaceChartOfAccountsPage() {
                 </div>
                 {openForm === "none" && (
                     <div className="row-actions">
+                        {accountsQuery.data !== undefined &&
+                            accountsQuery.data.length >= 2 && (
+                                <button
+                                    type="button"
+                                    className="button button-secondary"
+                                    onClick={() => setOpenForm("merge")}
+                                >
+                                    Merge accounts
+                                </button>
+                            )}
                         <button
                             type="button"
                             className="button button-secondary"
@@ -115,6 +126,13 @@ export function WorkspaceChartOfAccountsPage() {
             {openForm === "bulk" && (
                 <BulkCreateAccountsForm
                     entityId={entityId}
+                    onDone={() => setOpenForm("none")}
+                />
+            )}
+            {openForm === "merge" && accountsQuery.data !== undefined && (
+                <MergeAccountsForm
+                    entityId={entityId}
+                    accounts={accountsQuery.data}
                     onDone={() => setOpenForm("none")}
                 />
             )}

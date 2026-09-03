@@ -1,6 +1,6 @@
 import { initServer } from "@ts-rest/express";
 import { platformContract } from "@kick-demo/shared";
-import { forwardUpstreamError, kickClient } from "./kick-client";
+import { forwardUpstreamError, kickClient, UpstreamError } from "./kick-client";
 
 const s = initServer();
 
@@ -156,6 +156,27 @@ export const platformRouter = s.router(platformContract, {
                 return { status: 200, body: result.body };
             }
             return forwardUpstreamError(result);
+        },
+        // The blocked-merge 409 carries structured blockers, which
+        // forwardUpstreamError would flatten to `{ message }`, so it is
+        // forwarded verbatim here. The trailing 409 check is unreachable at
+        // runtime but keeps the handler's 409 typed to the blocked shape.
+        merge: async ({ params, body }) => {
+            const result = await kickClient.chartOfAccounts.merge({
+                params,
+                body,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            if (result.status === 409) {
+                return { status: 409, body: result.body };
+            }
+            const forwarded = forwardUpstreamError(result);
+            if (forwarded.status === 409) {
+                throw new UpstreamError(result.status, result.body);
+            }
+            return { status: forwarded.status, body: forwarded.body };
         },
         // The upstream 200 carries no body, so neither does this one.
         delete: async ({ params }) => {

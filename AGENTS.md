@@ -69,9 +69,13 @@ plus a small demo-only contract for the Plaid Link flow:
 - Handlers are pure pass-through. Declared upstream errors
   (400/401/404/409/429) are forwarded verbatim; anything undeclared becomes a
   502 via `UpstreamError`. Deleting a Plaid connection, updating a transaction
-  inside a locked bookkeeping period and deleting an account that has journal
-  entries are the only routes that answer 409 today, but the contract declares
-  the same error superset on every route. Kick answers a malformed request with a ts-rest validation envelope
+  inside a locked bookkeeping period, deleting an account that has journal
+  entries and a blocked account merge are the only routes that answer 409
+  today, but the contract declares the same error superset on every route.
+  The merge 409 is the one error body that is not plain `{ message }` — it
+  carries structured blockers, so its handler forwards the 409 itself instead
+  of going through `forwardUpstreamError`, which would flatten it. Kick
+  answers a malformed request with a ts-rest validation envelope
   rather than `{ message }`, so `forwardUpstreamError` unwraps that into a
   readable 400 — without it a plain "startDate must be on or before endDate"
   reaches the caller as an opaque 502.
@@ -174,10 +178,13 @@ intentionally left out:
 - Chart of accounts: everything except `get`, for the same reason as
   transactions — the listing already carries the whole row. Note the asymmetry
   in the write surface: `update` renames and nothing else (type, class and code
-  are fixed on creation), `disable`/`enable` archive and restore, and `delete`
-  is permanent but answers 409 once the account has journal entries. The wire
-  shape carries no flag for which accounts refuse which write, so the UI offers
-  all three and surfaces Kick's message when it declines.
+  are fixed on creation), `disable`/`enable` archive and restore, `delete`
+  is permanent but answers 409 once the account has journal entries, and
+  `merge` folds one account into another and deletes the source. The wire
+  shape carries no flag for which accounts refuse which write (or which pairs
+  can merge), so the UI offers everything and surfaces Kick's message when it
+  declines — for a blocked merge that message is built from the 409's
+  structured `blockers`.
 - Plaid: the Platform API's `create` takes a `processor_token` and has no
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is

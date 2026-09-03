@@ -175,3 +175,57 @@ export const platformUpdateAccountBodySchema = z.object({
 export type PlatformUpdateAccountBody = z.infer<
     typeof platformUpdateAccountBodySchema
 >;
+
+export const platformMergeAccountsBodySchema = z.object({
+    sourceAccountId: z.string().uuid(),
+    targetAccountId: z.string().uuid(),
+});
+
+export type PlatformMergeAccountsBody = z.infer<
+    typeof platformMergeAccountsBodySchema
+>;
+
+/**
+ * The reasons Kick refuses a merge. Vendored like the account type enums: a
+ * blocker code Kick adds upstream fails the BFF's response validation until
+ * it is copied here.
+ */
+export const ACCOUNT_MERGE_BLOCKER_CODES = [
+    "same_account",
+    "different_class",
+    "source_is_financial",
+    "source_has_role",
+    "source_is_kick_default",
+    "source_archived",
+    "target_archived",
+    "locked_period",
+    "target_reconciled",
+    "both_have_opening_balance",
+    "opening_balance_clearing_conflict",
+] as const;
+
+export const accountMergeBlockerCodeSchema = z.enum(
+    ACCOUNT_MERGE_BLOCKER_CODES,
+);
+
+export type AccountMergeBlockerCode = z.infer<
+    typeof accountMergeBlockerCodeSchema
+>;
+
+/**
+ * A merge blocked by the accounts' state answers 409 with this shape — the
+ * one error body in the mirror that is not plain `{ message }`.
+ */
+export const platformMergeAccountsBlockedResponseSchema = z.object({
+    message: z.string(),
+    blockers: z.array(
+        z.object({
+            code: accountMergeBlockerCodeSchema,
+            message: z.string(),
+        }),
+    ),
+});
+
+export type PlatformMergeAccountsBlockedResponse = z.infer<
+    typeof platformMergeAccountsBlockedResponseSchema
+>;
