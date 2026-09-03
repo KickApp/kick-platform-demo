@@ -297,7 +297,7 @@ export async function mergeAccounts({
     if (result.status === 409) {
         const reasons = result.body.blockers
             .map((blocker) => blocker.message)
-            .join(" ");
+            .join("; ");
         throw new ApiError(
             result.status,
             reasons !== "" ? reasons : result.body.message,
