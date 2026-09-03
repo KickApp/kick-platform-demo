@@ -10,6 +10,8 @@ import {
     platformChartOfAccountsListResponseSchema,
     platformChartOfAccountsPathParamsSchema,
     platformCreateAccountBodySchema,
+    platformMergeAccountsBlockedResponseSchema,
+    platformMergeAccountsBodySchema,
     platformUpdateAccountBodySchema,
 } from "../schemas/chart-of-accounts.schema";
 import {
@@ -63,8 +65,9 @@ const c = initContract();
  * Error responses are declared as the superset {400, 401, 404, 409, 429} on
  * every route so the BFF can pass upstream errors through uniformly. Deleting
  * a Plaid connection, updating a transaction inside a locked bookkeeping
- * period and deleting an account that has journal entries are the three routes
- * that actually answer 409 today.
+ * period, deleting an account that has journal entries and a blocked account
+ * merge are the routes that actually answer 409 today; the merge is the one
+ * whose 409 body carries structured blockers rather than plain `{ message }`.
  */
 const errorResponses = {
     400: errorMessageSchema,
@@ -219,7 +222,7 @@ const transactionsContract = c.router(
  * already carries the whole row. `update` renames and nothing else — an
  * account's type, class and code are fixed once it exists — and an account
  * with journal entries answers 409 on delete, so `disable` archives it
- * instead.
+ * instead. `merge` folds one account into another and deletes the source.
  */
 const chartOfAccountsContract = c.router(
     {
@@ -281,6 +284,20 @@ const chartOfAccountsContract = c.router(
             responses: {
                 200: platformAccountResponseSchema,
                 ...errorResponses,
+            },
+        },
+        // Moves every reference from the source account to the target and
+        // deletes the source. A merge blocked by the accounts' state answers
+        // 409 with the list of blockers instead of plain `{ message }`.
+        merge: {
+            method: "POST",
+            path: "/merge",
+            pathParams: platformChartOfAccountsPathParamsSchema,
+            body: platformMergeAccountsBodySchema,
+            responses: {
+                200: platformAccountResponseSchema,
+                ...errorResponses,
+                409: platformMergeAccountsBlockedResponseSchema,
             },
         },
         delete: {

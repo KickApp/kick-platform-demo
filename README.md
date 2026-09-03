@@ -140,6 +140,12 @@ curl -s -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-
 # Delete an account (409 once it has journal entries — archive it instead)
 curl -s -X DELETE "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts/<uuid>"
 
+# Merge the source account into the target and delete the source
+# (a blocked merge answers 409 with the list of blockers)
+curl -s -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts/merge" \
+  -H "Content-Type: application/json" \
+  -d '{"sourceAccountId": "<uuid>", "targetAccountId": "<uuid>"}'
+
 # Reports for an entity: profit-and-loss, balance-sheet, cash-flow, trial-balance
 curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/reports/profit-and-loss?startDate=2026-01-01&endDate=2026-12-31&ledgerBasis=cash&groupBy=month"
 
