@@ -1,5 +1,6 @@
 import { Link, Navigate, Route, Routes } from "react-router";
 import { WorkspacesPage } from "./pages/WorkspacesPage";
+import { WorkspaceAccountGroupsPage } from "./pages/WorkspaceAccountGroupsPage";
 import { WorkspaceChartOfAccountsPage } from "./pages/WorkspaceChartOfAccountsPage";
 import { WorkspaceEntitiesPage } from "./pages/WorkspaceEntitiesPage";
 import { WorkspaceLayout } from "./pages/WorkspaceLayout";
@@ -16,8 +17,9 @@ export function App() {
                     Kick Platform Demo
                 </Link>
                 <span className="app-subtitle">
-                    Workspaces, entities, the chart of accounts, Plaid
-                    connections, transactions &amp; reports via the Platform API
+                    Workspaces, entities, the chart of accounts, account groups,
+                    Plaid connections, transactions &amp; reports via the
+                    Platform API
                 </span>
             </header>
             <main className="app-main">
@@ -42,6 +44,10 @@ export function App() {
                         <Route
                             path="chart-of-accounts"
                             element={<WorkspaceChartOfAccountsPage />}
+                        />
+                        <Route
+                            path="account-groups"
+                            element={<WorkspaceAccountGroupsPage />}
                         />
                         <Route
                             path="plaid-connections"

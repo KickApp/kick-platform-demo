@@ -7,16 +7,11 @@ import {
     type AccountType,
     type PlatformAccountGroup,
 } from "@kick-demo/shared";
-import { createAccount } from "../api/platform";
+import { createAccountGroup } from "../api/platform";
 import { ErrorMessageBox } from "./StatusMessage";
 
-const NO_CODE = "";
-const NO_GROUP = "";
+const TOP_LEVEL = "";
 
-/**
- * An account's class follows from its type, so the picker is grouped by class
- * the same way the chart itself is displayed.
- */
 const TYPE_GROUPS = ACCOUNT_CLASSES.map((accountClass) => ({
     accountClass,
     types: ACCOUNT_TYPES.filter(
@@ -24,7 +19,7 @@ const TYPE_GROUPS = ACCOUNT_CLASSES.map((accountClass) => ({
     ),
 })).filter((group) => group.types.length > 0);
 
-export function CreateAccountForm({
+export function CreateAccountGroupForm({
     entityId,
     groups,
     onDone,
@@ -36,27 +31,25 @@ export function CreateAccountForm({
     const queryClient = useQueryClient();
     const [name, setName] = useState("");
     const [type, setType] = useState<AccountType>("Operating Expenses");
-    const [code, setCode] = useState(NO_CODE);
-    const [groupId, setGroupId] = useState(NO_GROUP);
+    const [parentGroupId, setParentGroupId] = useState(TOP_LEVEL);
 
-    // An account only ever sits in a group of its own type, so switching the
-    // type resets the group picker along with its options.
-    const eligibleGroups = groups.filter((group) => group.type === type);
+    // A group only ever nests under a parent of its own type, so switching
+    // the type resets the parent picker along with its options.
+    const eligibleParents = groups.filter((group) => group.type === type);
 
     const mutation = useMutation({
         mutationFn: () =>
-            createAccount({
+            createAccountGroup({
                 entityId,
                 body: {
                     name: name.trim(),
                     type,
-                    ...(code.trim() !== NO_CODE && { code: code.trim() }),
-                    ...(groupId !== NO_GROUP && { groupId }),
+                    ...(parentGroupId !== TOP_LEVEL && { parentGroupId }),
                 },
             }),
         onSuccess: async () => {
             await queryClient.invalidateQueries({
-                queryKey: ["chart-of-accounts", entityId],
+                queryKey: ["account-groups", entityId],
             });
             onDone();
         },
@@ -70,18 +63,21 @@ export function CreateAccountForm({
                 mutation.mutate();
             }}
         >
-            <h3 className="form-title">New account</h3>
+            <h3 className="form-title">New account group</h3>
             <label className="field">
                 <span className="field-label">Name</span>
                 <input
                     type="text"
                     value={name}
                     onChange={(event) => setName(event.target.value)}
-                    placeholder="Software Subscriptions"
-                    maxLength={200}
+                    placeholder="Marketing"
+                    maxLength={80}
                     required
                     autoFocus
                 />
+                <span className="field-hint">
+                    Names must be unique among siblings of the same type.
+                </span>
             </label>
             <label className="field">
                 <span className="field-label">Type</span>
@@ -93,7 +89,7 @@ export function CreateAccountForm({
                         );
                         if (selected) {
                             setType(selected);
-                            setGroupId(NO_GROUP);
+                            setParentGroupId(TOP_LEVEL);
                         }
                     }}
                 >
@@ -111,44 +107,29 @@ export function CreateAccountForm({
                     ))}
                 </select>
                 <span className="field-hint">
-                    The type fixes the account's class, and neither can be
-                    changed afterwards.
+                    Only accounts of this type can be placed in the group, and
+                    the type cannot be changed afterwards.
                 </span>
             </label>
             <label className="field">
-                <span className="field-label">Code (optional)</span>
-                <input
-                    type="text"
-                    value={code}
-                    onChange={(event) => setCode(event.target.value)}
-                    placeholder="6210"
-                    maxLength={20}
-                />
+                <span className="field-label">Parent group (optional)</span>
+                <select
+                    value={parentGroupId}
+                    onChange={(event) => setParentGroupId(event.target.value)}
+                    disabled={eligibleParents.length === 0}
+                >
+                    <option value={TOP_LEVEL}>Top level</option>
+                    {eligibleParents.map((group) => (
+                        <option key={group.id} value={group.id}>
+                            {group.name}
+                        </option>
+                    ))}
+                </select>
                 <span className="field-hint">
-                    Leave blank to let Kick allocate the next code in the type's
-                    range. A code outside that range is rejected.
+                    The parent must share the group's type; leave on top level
+                    to start a new branch.
                 </span>
             </label>
-            {eligibleGroups.length > 0 && (
-                <label className="field">
-                    <span className="field-label">Group (optional)</span>
-                    <select
-                        value={groupId}
-                        onChange={(event) => setGroupId(event.target.value)}
-                    >
-                        <option value={NO_GROUP}>Ungrouped</option>
-                        {eligibleGroups.map((group) => (
-                            <option key={group.id} value={group.id}>
-                                {group.name}
-                            </option>
-                        ))}
-                    </select>
-                    <span className="field-hint">
-                        A group only holds accounts of its own type, so the
-                        picker follows the type above.
-                    </span>
-                </label>
-            )}
             {mutation.error !== null && (
                 <ErrorMessageBox error={mutation.error} />
             )}
@@ -166,7 +147,7 @@ export function CreateAccountForm({
                     className="button button-primary"
                     disabled={mutation.isPending || name.trim() === ""}
                 >
-                    {mutation.isPending ? "Creating…" : "Create account"}
+                    {mutation.isPending ? "Creating…" : "Create group"}
                 </button>
             </div>
         </form>

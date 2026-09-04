@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchAllChartOfAccounts } from "../api/platform";
+import {
+    fetchAllAccountGroups,
+    fetchAllChartOfAccounts,
+} from "../api/platform";
 import { BulkCreateAccountsForm } from "../components/BulkCreateAccountsForm";
 import { ChartOfAccountsTable } from "../components/ChartOfAccountsTable";
 import { CreateAccountForm } from "../components/CreateAccountForm";
@@ -38,6 +41,12 @@ export function WorkspaceChartOfAccountsPage() {
         enabled: entityId !== "",
     });
 
+    const groupsQuery = useQuery({
+        queryKey: ["account-groups", entityId],
+        queryFn: () => fetchAllAccountGroups(entityId),
+        enabled: entityId !== "",
+    });
+
     if (entities.isPending) {
         return <LoadingMessage label="entities" />;
     }
@@ -64,8 +73,8 @@ export function WorkspaceChartOfAccountsPage() {
                         {accountsQuery.data !== undefined
                             ? `${accountsQuery.data.length} accounts — `
                             : ""}
-                        an account's type and code are fixed once it exists, so
-                        only its name can be changed.
+                        an account's type and code are fixed once it exists; its
+                        name and account group can be changed.
                     </p>
                 </div>
                 {openForm === "none" && (
@@ -120,6 +129,7 @@ export function WorkspaceChartOfAccountsPage() {
             {openForm === "single" && (
                 <CreateAccountForm
                     entityId={entityId}
+                    groups={groupsQuery.data ?? []}
                     onDone={() => setOpenForm("none")}
                 />
             )}
@@ -150,6 +160,7 @@ export function WorkspaceChartOfAccountsPage() {
                 ) : (
                     <ChartOfAccountsTable
                         accounts={accountsQuery.data}
+                        groups={groupsQuery.data ?? []}
                         entityId={entityId}
                     />
                 ))}

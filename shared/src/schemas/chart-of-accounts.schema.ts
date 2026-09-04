@@ -80,8 +80,9 @@ export const ACCOUNT_TYPE_CLASSES: Record<AccountType, AccountClass> = {
 
 /**
  * Wire shape of a Platform API account. `code` is the human-facing account
- * code, absent on some accounts. Archived accounts stay in the listing and are
- * flagged with `isDisabled`.
+ * code, absent on some accounts. `groupId` is the account group the account
+ * belongs to, null when ungrouped. Archived accounts stay in the listing and
+ * are flagged with `isDisabled`.
  */
 export const platformAccountSchema = z.object({
     id: z.string().uuid(),
@@ -89,6 +90,7 @@ export const platformAccountSchema = z.object({
     name: z.string(),
     type: accountTypeSchema,
     class: accountClassSchema,
+    groupId: z.string().uuid().nullable(),
     isDisabled: z.boolean(),
     createdAt: z.string(),
 });
@@ -135,11 +137,14 @@ export const PLATFORM_BULK_CREATE_ACCOUNTS_MAX_ITEMS = 100;
  * Write payloads mirror the read shape: `code` is the human-facing display
  * code, and the subtype is never exposed — Kick assigns the type's default.
  * Omitting `code` lets Kick allocate the next one in the type's range.
+ * `groupId` places the new account in an account group, which must share the
+ * account's type.
  */
 const platformCreateAccountItemSchema = z.object({
     name: z.string().trim().min(1).max(200),
     type: accountTypeSchema,
     code: z.string().trim().min(1).max(20).optional(),
+    groupId: z.string().uuid().optional(),
 });
 
 export const platformCreateAccountBodySchema = platformCreateAccountItemSchema;
@@ -167,10 +172,19 @@ export type PlatformBulkCreateAccountsResponse = z.infer<
     typeof platformBulkCreateAccountsResponseSchema
 >;
 
-/** An account's type, class and code are fixed once it exists. */
-export const platformUpdateAccountBodySchema = z.object({
-    name: z.string().trim().min(1).max(200),
-});
+/**
+ * An account's type, class and code are fixed once it exists; `update`
+ * renames and/or moves the account into an account group of the same type
+ * (null removes it from its group).
+ */
+export const platformUpdateAccountBodySchema = z
+    .object({
+        name: z.string().trim().min(1).max(200).optional(),
+        groupId: z.string().uuid().nullable().optional(),
+    })
+    .refine((body) => body.name !== undefined || body.groupId !== undefined, {
+        message: "At least one field must be provided",
+    });
 
 export type PlatformUpdateAccountBody = z.infer<
     typeof platformUpdateAccountBodySchema

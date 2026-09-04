@@ -2,15 +2,16 @@
 
 Demo app for the [Kick](https://kick.co) Platform API: a React frontend and a
 small Express BFF backend covering **workspaces**, **entities**, **Plaid
-connections**, **transactions**, the **chart of accounts** and **reports**
-through the external Platform API.
+connections**, **transactions**, the **chart of accounts**, **account groups**
+and **reports** through the external Platform API.
 
-Opening a workspace gives five tabs: manage its entities, manage an entity's
-chart of accounts (create, rename, archive, delete), manage the Plaid
-connections the partner created (list, connect through Plaid Link, delete),
-read the workspace's transactions across every entity and recategorize them,
-and read an entity's accounting reports. The backend also receives Kick's
-webhooks and logs them — see [Webhooks](#webhooks).
+Opening a workspace gives six tabs: manage its entities, manage an entity's
+chart of accounts (create, rename, move between groups, archive, delete),
+manage the account groups arranging that chart into a hierarchy, manage the
+Plaid connections the partner created (list, connect through Plaid Link,
+delete), read the workspace's transactions across every entity and
+recategorize them, and read an entity's accounting reports. The backend also
+receives Kick's webhooks and logs them — see [Webhooks](#webhooks).
 
 ## How it works
 
@@ -128,10 +129,11 @@ curl -s -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-
   -H "Content-Type: application/json" \
   -d '{"accounts": [{"name": "Consulting Revenue", "type": "Income"}, {"name": "Contractors", "type": "COGS"}]}'
 
-# Rename an account (the only update; type, class and code are fixed on creation)
+# Rename an account and/or move it between groups (type, class and code are
+# fixed on creation; "groupId": null removes it from its group)
 curl -s -X PATCH "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts/<uuid>" \
   -H "Content-Type: application/json" \
-  -d '{"name": "Software & SaaS"}'
+  -d '{"name": "Software & SaaS", "groupId": "<uuid>"}'
 
 # Archive and restore an account
 curl -s -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts/<uuid>/disable"
@@ -145,6 +147,23 @@ curl -s -X DELETE "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-o
 curl -s -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts/merge" \
   -H "Content-Type: application/json" \
   -d '{"sourceAccountId": "<uuid>", "targetAccountId": "<uuid>"}'
+
+# List an entity's account groups, in the order the chart displays them
+curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/account-groups?limit=100"
+
+# Create an account group (parentGroupId is optional and must share the type)
+curl -s -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/account-groups" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Marketing", "type": "Operating Expenses"}'
+
+# Rename a group and/or move it under another parent (null re-roots it;
+# a group's type is fixed on creation)
+curl -s -X PATCH "http://localhost:4001/api/platform/v1/entities/<uuid>/account-groups/<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Growth", "parentGroupId": null}'
+
+# Delete a group; its accounts and child groups are lifted to its parent
+curl -s -X DELETE "http://localhost:4001/api/platform/v1/entities/<uuid>/account-groups/<uuid>"
 
 # Reports for an entity: profit-and-loss, balance-sheet, cash-flow, trial-balance
 curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/reports/profit-and-loss?startDate=2026-01-01&endDate=2026-12-31&ledgerBasis=cash&groupBy=month"
@@ -260,12 +279,16 @@ Entertainment", the type "Operating Expenses" and the code `6420`. Leaving the
 code off lets Kick allocate the next one in the type's range. The bulk call is
 atomic: if Kick rejects any account in the batch, none are created.
 
-An existing account accepts three writes, and which of them a given account
-allows is not visible on the wire, so all three are always offered and Kick's
+An existing account accepts four writes, and which of them a given account
+allows is not visible on the wire, so all four are always offered and Kick's
 own message is shown when it declines:
 
-- **Rename** is the only update — an account's type, class and code are fixed
-  once it exists. Renaming an account Kick seeded answers `400`.
+- **Rename** — an account's type, class and code are fixed once it exists, so
+  the name is the only field the update changes besides the group. Renaming an
+  account Kick seeded answers `400`.
+- **Move between groups** — the same update call takes a `groupId` pointing at
+  an account group of the account's type, or `null` to leave its group. The
+  Group column offers the eligible groups directly.
 - **Archive** (`disable`) and **Restore** (`enable`) retire an account without
   losing history. Archived accounts stay in the listing flagged `isDisabled`
   and drop out of the transactions tab's picker. Role-holder accounts and
@@ -277,6 +300,20 @@ An entity created with a custom chart of accounts starts with only the accounts
 Kick automations require — clearing accounts, uncategorized income and
 expenses. Kick seeds them lazily, so they appear the first time this tab reads
 the chart.
+
+## Account groups
+
+Account groups arrange an entity's chart of accounts into a hierarchy for
+reporting: a group and every account inside it share one account type, and
+groups nest under parents of that same type. The tab lists an entity's groups
+in one section per type with children indented, shows how many accounts each
+group holds, and offers the full write surface — create (with an optional
+parent), rename, move under another parent (the picker never offers the
+group's own subtree, which Kick would reject as a cycle), and delete, which
+lifts the group's accounts and child groups to its parent rather than removing
+them. Accounts are placed into groups from the chart of accounts tab, not
+here: membership is a field on the account (`groupId`), written through the
+account update call.
 
 ## Transactions and the chart of accounts
 
@@ -314,7 +351,8 @@ shared/    Vendored Platform API contract + Zod schemas (ts-rest), used by both 
 backend/   Express BFF: authenticates to Kick, passes requests/errors through,
            logs incoming webhooks
 frontend/  React app: workspaces list/create, then per-workspace entities,
-           chart of accounts, Plaid connections, transactions and reports tabs
+           chart of accounts, account groups, Plaid connections, transactions
+           and reports tabs
 ```
 
 See [AGENTS.md](AGENTS.md) for a guide aimed at coding agents extending this

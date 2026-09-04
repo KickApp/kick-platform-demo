@@ -8,5 +8,6 @@ export * from "./schemas/plaid-connection.schema";
 export * from "./schemas/plaid-link.schema";
 export * from "./schemas/transaction.schema";
 export * from "./schemas/chart-of-accounts.schema";
+export * from "./schemas/account-group.schema";
 export * from "./schemas/report.schema";
 export * from "./schemas/webhook-event.schema";

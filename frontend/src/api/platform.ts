@@ -5,11 +5,14 @@ import {
     type CreatePlatformEntityBody,
     type CreatePlatformWorkspaceBody,
     type PlatformAccount,
+    type PlatformAccountGroup,
     type PlatformBulkCreateAccountsBody,
     type PlatformCreateAccountBody,
+    type PlatformCreateAccountGroupBody,
     type PlatformMergeAccountsBody,
     type PlatformTransactionUpdateBody,
     type PlatformUpdateAccountBody,
+    type PlatformUpdateAccountGroupBody,
     type ReportGroupBy,
 } from "@kick-demo/shared";
 import { ApiError, toApiError } from "./errors";
@@ -206,7 +209,11 @@ export async function bulkCreateAccounts({
     throw toApiError(result);
 }
 
-/** Renaming is the only update: type, class and code are fixed on creation. */
+/**
+ * Renames the account and/or moves it into an account group of the same type
+ * (null removes it from its group); type, class and code are fixed on
+ * creation.
+ */
 export async function updateAccount({
     entityId,
     accountId,
@@ -302,6 +309,105 @@ export async function mergeAccounts({
             result.status,
             reasons !== "" ? reasons : result.body.message,
         );
+    }
+    throw toApiError(result);
+}
+
+export async function fetchAccountGroups(query: {
+    entityId: string;
+    limit: number;
+    offset: number;
+}) {
+    const { entityId, ...rest } = query;
+    const result = await api.accountGroups.list({
+        params: { entityId },
+        query: rest,
+    });
+    if (result.status === 200) {
+        return result.body;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Rendering the group hierarchy (and resolving an account's group) needs every
+ * group, so walk the offsets like `fetchAllChartOfAccounts` does.
+ */
+export async function fetchAllAccountGroups(
+    entityId: string,
+): Promise<PlatformAccountGroup[]> {
+    const groups: PlatformAccountGroup[] = [];
+    let offset = 0;
+    let total = 0;
+    do {
+        const page = await fetchAccountGroups({
+            entityId,
+            limit: PLATFORM_PAGE_LIMIT_MAX,
+            offset,
+        });
+        groups.push(...page.data);
+        total = page.pagination.total;
+        offset += PLATFORM_PAGE_LIMIT_MAX;
+    } while (groups.length < total);
+    return groups;
+}
+
+export async function createAccountGroup({
+    entityId,
+    body,
+}: {
+    entityId: string;
+    body: PlatformCreateAccountGroupBody;
+}) {
+    const result = await api.accountGroups.create({
+        params: { entityId },
+        body,
+    });
+    if (result.status === 201) {
+        return result.body.group;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Renames the group and/or moves it under a different parent of the same type
+ * (null re-roots it at the top level); the group's type is fixed on creation.
+ */
+export async function updateAccountGroup({
+    entityId,
+    groupId,
+    body,
+}: {
+    entityId: string;
+    groupId: string;
+    body: PlatformUpdateAccountGroupBody;
+}) {
+    const result = await api.accountGroups.update({
+        params: { entityId, groupId },
+        body,
+    });
+    if (result.status === 200) {
+        return result.body.group;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Deleting a group lifts its accounts and child groups to its parent (or the
+ * top level), so nothing else is lost with it.
+ */
+export async function deleteAccountGroup({
+    entityId,
+    groupId,
+}: {
+    entityId: string;
+    groupId: string;
+}) {
+    const result = await api.accountGroups.delete({
+        params: { entityId, groupId },
+    });
+    if (result.status === 200) {
+        return;
     }
     throw toApiError(result);
 }

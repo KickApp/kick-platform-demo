@@ -57,6 +57,7 @@ plus a small demo-only contract for the Plaid Link flow:
   `/platform/v1/plaid-connections`,
   `/platform/v1/workspaces/:workspaceId/transactions`,
   `/platform/v1/entities/:entityId/chart-of-accounts`,
+  `/platform/v1/entities/:entityId/account-groups`,
   `/platform/v1/entities/:entityId/reports/*`).
 - The backend consumes it twice: `initClient` against Kick
   (`backend/src/kick-client.ts`) and `initServer`/`createExpressEndpoints`
@@ -169,22 +170,29 @@ the rollup to group them.
 
 ## Vendored resources and deliberate gaps
 
-Six resources are vendored: workspaces, entities, Plaid connections,
-transactions, the chart of accounts and reports. Some upstream routes are
-intentionally left out:
+Seven resources are vendored: workspaces, entities, Plaid connections,
+transactions, the chart of accounts, account groups and reports. Some upstream
+routes are intentionally left out:
 
 - Transactions: `list` and `update`. The upstream `get` is not vendored — the
   listing already carries the whole row.
 - Chart of accounts: everything except `get`, for the same reason as
   transactions — the listing already carries the whole row. Note the asymmetry
-  in the write surface: `update` renames and nothing else (type, class and code
-  are fixed on creation), `disable`/`enable` archive and restore, `delete`
+  in the write surface: `update` renames and/or moves the account into an
+  account group of the same type via `groupId` (type, class and code are fixed
+  on creation), `disable`/`enable` archive and restore, `delete`
   is permanent but answers 409 once the account has journal entries, and
   `merge` folds one account into another and deletes the source. The wire
   shape carries no flag for which accounts refuse which write (or which pairs
   can merge), so the UI offers everything and surfaces Kick's message when it
   declines — for a blocked merge that message is built from the 409's
   structured `blockers`.
+- Account groups: everything except `get`, again because the listing carries
+  the whole row. A group's type is fixed on creation — `update` renames and/or
+  re-parents (null re-roots at the top level) — and `delete` lifts the group's
+  accounts and child groups to its parent, so it never answers 409. Group
+  membership is not written here: it is the `groupId` field on the account,
+  written through the chart-of-accounts `create`/`update` routes.
 - Plaid: the Platform API's `create` takes a `processor_token` and has no
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is

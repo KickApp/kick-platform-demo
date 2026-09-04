@@ -187,6 +187,46 @@ export const platformRouter = s.router(platformContract, {
             return forwardUpstreamError(result);
         },
     },
+    accountGroups: {
+        list: async ({ params, query }) => {
+            const result = await kickClient.accountGroups.list({
+                params,
+                query,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        create: async ({ params, body }) => {
+            const result = await kickClient.accountGroups.create({
+                params,
+                body,
+            });
+            if (result.status === 201) {
+                return { status: 201, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        update: async ({ params, body }) => {
+            const result = await kickClient.accountGroups.update({
+                params,
+                body,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        // The upstream 200 carries no body, so neither does this one.
+        delete: async ({ params }) => {
+            const result = await kickClient.accountGroups.delete({ params });
+            if (result.status === 200) {
+                return { status: 200, body: undefined };
+            }
+            return forwardUpstreamError(result);
+        },
+    },
     reports: {
         profitAndLoss: async ({ params, query }) => {
             const result = await kickClient.reports.profitAndLoss({
