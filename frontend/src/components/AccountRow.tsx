@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { PlatformAccount } from "@kick-demo/shared";
+import type { PlatformAccount, PlatformAccountGroup } from "@kick-demo/shared";
 import {
     deleteAccount,
     disableAccount,
@@ -8,25 +8,36 @@ import {
     updateAccount,
 } from "../api/platform";
 
-type AccountAction = "rename" | "archive" | "delete";
+type AccountAction = "rename" | "move" | "archive" | "delete";
+
+const NO_GROUP = "";
 
 /**
- * One row of the chart, with the three writes the Platform API allows on an
- * existing account. Which of them a given account accepts is not visible on
- * the wire — Kick's own seeded accounts refuse a rename, role holders refuse
- * archiving, and an account carrying journal entries refuses deletion — so
- * every action is offered and the API's own message is shown when it declines.
+ * One row of the chart, with the writes the Platform API allows on an
+ * existing account: rename, move between account groups, archive/restore and
+ * delete. Which of them a given account accepts is not visible on the wire —
+ * Kick's own seeded accounts refuse a rename, role holders refuse archiving,
+ * and an account carrying journal entries refuses deletion — so every action
+ * is offered and the API's own message is shown when it declines. The group
+ * picker only offers groups of the account's type, the one rule that is
+ * visible.
  */
 export function AccountRow({
     account,
+    groups,
     entityId,
 }: {
     account: PlatformAccount;
+    groups: PlatformAccountGroup[];
     entityId: string;
 }) {
     const queryClient = useQueryClient();
     const [isRenaming, setIsRenaming] = useState(false);
     const [name, setName] = useState(account.name);
+
+    const eligibleGroups = groups.filter(
+        (group) => group.type === account.type,
+    );
 
     const invalidate = () =>
         queryClient.invalidateQueries({
@@ -37,9 +48,11 @@ export function AccountRow({
         mutationFn: async ({
             action,
             renamedTo,
+            movedTo,
         }: {
             action: AccountAction;
             renamedTo?: string;
+            movedTo?: string | null;
         }) => {
             const params = { entityId, accountId: account.id };
             switch (action) {
@@ -47,6 +60,12 @@ export function AccountRow({
                     await updateAccount({
                         ...params,
                         body: { name: renamedTo ?? account.name },
+                    });
+                    return;
+                case "move":
+                    await updateAccount({
+                        ...params,
+                        body: { groupId: movedTo ?? null },
                     });
                     return;
                 case "archive":
@@ -127,6 +146,33 @@ export function AccountRow({
                 )}
             </td>
             <td>{account.type}</td>
+            <td>
+                {eligibleGroups.length === 0 ? (
+                    <span className="cell-placeholder">No groups</span>
+                ) : (
+                    <select
+                        value={account.groupId ?? NO_GROUP}
+                        disabled={mutation.isPending}
+                        onChange={(event) => {
+                            mutation.reset();
+                            mutation.mutate({
+                                action: "move",
+                                movedTo:
+                                    event.target.value === NO_GROUP
+                                        ? null
+                                        : event.target.value,
+                            });
+                        }}
+                    >
+                        <option value={NO_GROUP}>Ungrouped</option>
+                        {eligibleGroups.map((group) => (
+                            <option key={group.id} value={group.id}>
+                                {group.name}
+                            </option>
+                        ))}
+                    </select>
+                )}
+            </td>
             <td>
                 {account.isDisabled ? (
                     <span className="badge">Archived</span>

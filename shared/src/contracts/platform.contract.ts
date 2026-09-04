@@ -2,6 +2,15 @@ import { initContract } from "@ts-rest/core";
 import { errorMessageSchema } from "../schemas/error.schema";
 import { platformPaginationQuerySchema } from "../schemas/pagination.schema";
 import {
+    platformAccountGroupPathParamsSchema,
+    platformAccountGroupResponseSchema,
+    platformAccountGroupsListQuerySchema,
+    platformAccountGroupsListResponseSchema,
+    platformAccountGroupsPathParamsSchema,
+    platformCreateAccountGroupBodySchema,
+    platformUpdateAccountGroupBodySchema,
+} from "../schemas/account-group.schema";
+import {
     platformAccountPathParamsSchema,
     platformAccountResponseSchema,
     platformBulkCreateAccountsBodySchema,
@@ -315,6 +324,60 @@ const chartOfAccountsContract = c.router(
 );
 
 /**
+ * Account groups organize an entity's chart of accounts into a hierarchy, so
+ * the routes nest under the entity uuid like the chart itself. Retrieving a
+ * single group is not vendored: the listing already carries the whole row.
+ * A group's type is fixed once it exists — `update` renames and/or re-parents
+ * (null re-roots at the top level) — and `delete` lifts the group's accounts
+ * and child groups to its parent instead of deleting them.
+ */
+const accountGroupsContract = c.router(
+    {
+        list: {
+            method: "GET",
+            path: "",
+            pathParams: platformAccountGroupsPathParamsSchema,
+            query: platformAccountGroupsListQuerySchema,
+            responses: {
+                200: platformAccountGroupsListResponseSchema,
+                ...errorResponses,
+            },
+        },
+        create: {
+            method: "POST",
+            path: "",
+            pathParams: platformAccountGroupsPathParamsSchema,
+            body: platformCreateAccountGroupBodySchema,
+            responses: {
+                201: platformAccountGroupResponseSchema,
+                ...errorResponses,
+            },
+        },
+        update: {
+            method: "PATCH",
+            path: "/:groupId",
+            pathParams: platformAccountGroupPathParamsSchema,
+            body: platformUpdateAccountGroupBodySchema,
+            responses: {
+                200: platformAccountGroupResponseSchema,
+                ...errorResponses,
+            },
+        },
+        delete: {
+            method: "DELETE",
+            path: "/:groupId",
+            pathParams: platformAccountGroupPathParamsSchema,
+            body: c.noBody(),
+            responses: {
+                200: c.noBody(),
+                ...errorResponses,
+            },
+        },
+    },
+    { pathPrefix: "/platform/v1/entities/:entityId/account-groups" },
+);
+
+/**
  * Reports are scoped to a single entity and a single date range. `groupBy`
  * splits that range into columns without changing the response shape; the
  * general ledger lists individual postings instead of period aggregates and so
@@ -382,5 +445,6 @@ export const platformContract = c.router({
     plaidConnections: plaidConnectionsContract,
     transactions: transactionsContract,
     chartOfAccounts: chartOfAccountsContract,
+    accountGroups: accountGroupsContract,
     reports: reportsContract,
 });
