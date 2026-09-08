@@ -1,22 +1,119 @@
+import { Fragment, type CSSProperties } from "react";
 import type {
-    PlatformReportLine,
     PlatformReportPeriodBucket,
+    PlatformReportRow,
 } from "@kick-demo/shared";
 import { formatAmount } from "../../lib/format";
 
 /**
  * Profit and loss, balance sheet and cash flow all come back as a list of
- * sections holding a total and its already-flattened account lines, so one
- * table renders all three. The caller resolves each section's display label,
- * which is an enum on two of the reports and a plain string on the third.
+ * sections holding a total and its rows, so one table renders all three. The
+ * caller resolves each section's display label, which is an enum on two of the
+ * reports and a plain string on the third. Rows nest recursively: account rows
+ * sit under group rows mirroring the chart-of-accounts account groups, each
+ * group closed by its own total row.
  */
 export type ReportSection = {
     key: string;
     label: string;
     total: number;
     totalsByPeriod: number[];
-    lines: PlatformReportLine[];
+    lines: PlatformReportRow[];
 };
+
+const BASE_INDENT_PX = 32;
+const INDENT_STEP_PX = 24;
+
+function indentStyle(depth: number): CSSProperties {
+    return { paddingLeft: `${BASE_INDENT_PX + depth * INDENT_STEP_PX}px` };
+}
+
+function AmountCells({
+    periodColumns,
+    amountsByPeriod,
+    amount,
+}: {
+    periodColumns: PlatformReportPeriodBucket[];
+    amountsByPeriod: number[];
+    amount: number;
+}) {
+    return (
+        <>
+            {periodColumns.map((period, periodIndex) => (
+                <td key={period.startDate} className="amount">
+                    {formatAmount(amountsByPeriod[periodIndex] ?? 0)}
+                </td>
+            ))}
+            <td className="amount">{formatAmount(amount)}</td>
+        </>
+    );
+}
+
+function ReportRows({
+    rows,
+    depth,
+    periodColumns,
+}: {
+    rows: PlatformReportRow[];
+    depth: number;
+    periodColumns: PlatformReportPeriodBucket[];
+}) {
+    return (
+        <>
+            {rows.map((row, index) =>
+                row.kind === "group" ? (
+                    <Fragment key={`group-${row.groupId ?? row.name}-${index}`}>
+                        <tr className="report-group-row">
+                            <td
+                                className="report-line-name"
+                                style={indentStyle(depth)}
+                                colSpan={periodColumns.length + 2}
+                            >
+                                {row.name}
+                            </td>
+                        </tr>
+                        <ReportRows
+                            rows={row.lines}
+                            depth={depth + 1}
+                            periodColumns={periodColumns}
+                        />
+                        <tr className="report-group-total-row">
+                            <td
+                                className="report-line-name"
+                                style={indentStyle(depth)}
+                            >
+                                {row.name} total
+                            </td>
+                            <AmountCells
+                                periodColumns={periodColumns}
+                                amountsByPeriod={row.totalsByPeriod}
+                                amount={row.total}
+                            />
+                        </tr>
+                    </Fragment>
+                ) : (
+                    <tr
+                        key={`account-${row.accountCode ?? row.accountName}-${index}`}
+                    >
+                        <td
+                            className="report-line-name"
+                            style={indentStyle(depth)}
+                        >
+                            {row.accountCode !== null
+                                ? `${row.accountCode} — ${row.accountName}`
+                                : row.accountName}
+                        </td>
+                        <AmountCells
+                            periodColumns={periodColumns}
+                            amountsByPeriod={row.amountsByPeriod}
+                            amount={row.amount}
+                        />
+                    </tr>
+                ),
+            )}
+        </>
+    );
+}
 
 /**
  * `periods` always holds at least one bucket. A single bucket is the whole
@@ -55,31 +152,11 @@ export function ReportSectionsTable({
                                 {section.label}
                             </td>
                         </tr>
-                        {section.lines.map((line, index) => (
-                            <tr
-                                key={`${line.accountCode ?? line.accountName}-${index}`}
-                            >
-                                <td className="report-line-name">
-                                    {line.accountCode !== null
-                                        ? `${line.accountCode} — ${line.accountName}`
-                                        : line.accountName}
-                                </td>
-                                {periodColumns.map((period, periodIndex) => (
-                                    <td
-                                        key={period.startDate}
-                                        className="amount"
-                                    >
-                                        {formatAmount(
-                                            line.amountsByPeriod[periodIndex] ??
-                                                0,
-                                        )}
-                                    </td>
-                                ))}
-                                <td className="amount">
-                                    {formatAmount(line.amount)}
-                                </td>
-                            </tr>
-                        ))}
+                        <ReportRows
+                            rows={section.lines}
+                            depth={0}
+                            periodColumns={periodColumns}
+                        />
                         <tr className="report-total-row">
                             <td>{section.label} total</td>
                             {periodColumns.map((period, periodIndex) => (

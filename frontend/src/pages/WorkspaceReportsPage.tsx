@@ -9,6 +9,7 @@ import {
     type PlatformCashFlowReport,
     type PlatformGeneralLedgerReport,
     type PlatformProfitAndLossReport,
+    type PlatformReportRow,
     type PlatformTrialBalanceReport,
     type ReportGroupBy,
 } from "@kick-demo/shared";
@@ -304,7 +305,15 @@ function ReportBody({ result }: { result: ReportResult }) {
                                 ],
                                 total: section.total,
                                 totalsByPeriod: section.totalsByPeriod,
-                                lines: section.lines,
+                                // The cash flow stays flat on the wire, so its
+                                // lines become account rows for the shared
+                                // nested table.
+                                lines: section.lines.map(
+                                    (line): PlatformReportRow => ({
+                                        kind: "account",
+                                        ...line,
+                                    }),
+                                ),
                             }))}
                         />
                     )}

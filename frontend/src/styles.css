@@ -218,6 +218,14 @@ tbody tr:hover {
     padding-left: 32px;
 }
 
+.report-group-row td {
+    font-weight: 600;
+}
+
+.report-group-total-row td {
+    color: var(--text-muted);
+}
+
 .report-total-row td {
     font-weight: 600;
 }
