@@ -3,13 +3,15 @@ import { z } from "zod";
 /**
  * Wire shapes of the Platform API's financial reports.
  *
- * Reports are deliberately flatter than Kick's internal report shapes: account
- * lines arrive already flattened out of the nested report groups, so nothing
- * here is recursive. Every report carries the same shape whether or not
- * `groupBy` was used — `periods` always lists at least one date range and each
- * `...ByPeriod` array lines up with it one for one, alongside a whole-range
- * scalar (a sum for the flow reports, a closing balance for the position
- * ones).
+ * Profit and loss and balance sheet sections carry nested rows: account rows
+ * sit under recursive `kind: "group"` rows that mirror the chart-of-accounts
+ * account groups (and the balance sheet's structural groupings such as
+ * "Current Assets"), each group row carrying its own totals. The cash flow and
+ * trial balance keep flat account lines. Every report carries the same shape
+ * whether or not `groupBy` was used — `periods` always lists at least one date
+ * range and each `...ByPeriod` array lines up with it one for one, alongside a
+ * whole-range scalar (a sum for the flow reports, a closing balance for the
+ * position ones).
  */
 
 /**
@@ -86,6 +88,49 @@ export const platformReportLineSchema = z.object({
 
 export type PlatformReportLine = z.infer<typeof platformReportLineSchema>;
 
+export const platformReportAccountRowSchema = platformReportLineSchema.extend({
+    kind: z.literal("account"),
+});
+
+export type PlatformReportAccountRow = z.infer<
+    typeof platformReportAccountRowSchema
+>;
+
+/**
+ * Zod cannot infer a recursive type, so the group row is declared as an
+ * interface and its schema typed explicitly with `z.lazy` closing the loop.
+ */
+export interface PlatformReportGroupRow {
+    kind: "group";
+    /**
+     * Chart-of-accounts account group uuid (see the platform account-groups
+     * API), or null for structural groupings such as "Current Assets".
+     */
+    groupId: string | null;
+    name: string;
+    total: number;
+    totalsByPeriod: number[];
+    lines: PlatformReportRow[];
+}
+
+export type PlatformReportRow =
+    PlatformReportAccountRow | PlatformReportGroupRow;
+
+export const platformReportGroupRowSchema: z.ZodType<PlatformReportGroupRow> =
+    z.object({
+        kind: z.literal("group"),
+        groupId: z.string().uuid().nullable(),
+        name: z.string(),
+        total: z.number(),
+        totalsByPeriod: z.array(z.number()),
+        lines: z.array(z.lazy(() => platformReportRowSchema)),
+    });
+
+export const platformReportRowSchema: z.ZodType<PlatformReportRow> = z.union([
+    platformReportAccountRowSchema,
+    platformReportGroupRowSchema,
+]);
+
 export const platformReportPeriodBucketSchema = z.object({
     startDate: z.string(),
     endDate: z.string(),
@@ -144,7 +189,7 @@ export const platformProfitAndLossSectionSchema = z.object({
     section: profitAndLossSectionSchema,
     total: z.number(),
     totalsByPeriod: z.array(z.number()),
-    lines: z.array(platformReportLineSchema),
+    lines: z.array(platformReportRowSchema),
 });
 
 export type PlatformProfitAndLossSection = z.infer<
@@ -172,7 +217,7 @@ export const platformBalanceSheetSectionSchema = z.object({
     label: z.string(),
     total: z.number(),
     totalsByPeriod: z.array(z.number()),
-    lines: z.array(platformReportLineSchema),
+    lines: z.array(platformReportRowSchema),
 });
 
 export type PlatformBalanceSheetSection = z.infer<
