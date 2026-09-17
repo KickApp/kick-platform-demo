@@ -47,6 +47,13 @@ export const PROCESSOR_TOKEN_PATTERN =
     /^processor-(sandbox|development|production)-[0-9a-zA-Z]+(-[0-9a-zA-Z]+)*$/;
 
 /**
+ * Plaid institution ids look like `ins_109508`. Kick validates the shape too,
+ * so keeping the pattern here turns a name or a mistyped id into a
+ * client-side error instead of a round trip.
+ */
+export const PLAID_INSTITUTION_ID_PATTERN = /^ins_[0-9a-zA-Z]+$/;
+
+/**
  * Wire shape of a Platform API Plaid connection. `createdAt` is an ISO-8601
  * datetime string. The processor token is never echoed back.
  */
@@ -130,7 +137,9 @@ export type PlatformPlaidConnectionResponse = z.infer<
 /**
  * The partner owns the Plaid Link flow under its own credentials and hands
  * Kick the resulting `processor_token`, so there is no link-token or
- * public-token exchange on this surface.
+ * public-token exchange on this surface. `institutionId` is required: no
+ * processor endpoint names the institution, and it is what resolves the
+ * connection's institution name and logo.
  */
 export const createPlatformPlaidConnectionBodySchema = z.object({
     entityId: z.string().uuid(),
@@ -140,6 +149,13 @@ export const createPlatformPlaidConnectionBodySchema = z.object({
         .regex(
             PROCESSOR_TOKEN_PATTERN,
             "processorToken must look like processor-<environment>-<identifier>",
+        ),
+    institutionId: z
+        .string()
+        .max(64)
+        .regex(
+            PLAID_INSTITUTION_ID_PATTERN,
+            "institutionId must be a Plaid institution id like ins_109508",
         ),
 });
 

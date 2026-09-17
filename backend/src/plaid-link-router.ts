@@ -73,6 +73,27 @@ async function resolveAccountId(
     return only.account_id;
 }
 
+/**
+ * Link does not report the institution for every flow (same-day micro-deposit
+ * items, say), and Kick requires one to create the connection, so fall back to
+ * reading it off the Item.
+ */
+async function resolveInstitutionId(
+    client: PlaidApi,
+    accessToken: string,
+): Promise<string> {
+    const { data } = await client.itemGet({ access_token: accessToken });
+    const institutionId = data.item.institution_id ?? null;
+
+    if (institutionId === null) {
+        throw new PlaidRequestError(
+            "Plaid reports no institution for the linked Item, and Kick " +
+                "requires one to create the connection.",
+        );
+    }
+    return institutionId;
+}
+
 export const plaidLinkRouter = s.router(plaidLinkContract, {
     getConfig: async () => ({
         status: 200 as const,
@@ -132,6 +153,7 @@ export const plaidLinkRouter = s.router(plaidLinkContract, {
         }
 
         let processorToken: string;
+        let institutionId: string;
         try {
             const { data: exchange } =
                 await plaid.client.itemPublicTokenExchange({
@@ -141,6 +163,13 @@ export const plaidLinkRouter = s.router(plaidLinkContract, {
             const accountId =
                 body.accountId ??
                 (await resolveAccountId(plaid.client, exchange.access_token));
+
+            institutionId =
+                body.institutionId ??
+                (await resolveInstitutionId(
+                    plaid.client,
+                    exchange.access_token,
+                ));
 
             const { data: processor } = await plaid.client.processorTokenCreate(
                 {
@@ -162,7 +191,7 @@ export const plaidLinkRouter = s.router(plaidLinkContract, {
         }
 
         const result = await kickClient.plaidConnections.create({
-            body: { entityId: body.entityId, processorToken },
+            body: { entityId: body.entityId, processorToken, institutionId },
         });
         if (result.status === 201) {
             return { status: 201 as const, body: result.body };

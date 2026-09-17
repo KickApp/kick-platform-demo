@@ -129,6 +129,9 @@ function PlaidLinkForm({
                     metadata.accounts.length === 1 && only !== undefined
                         ? only.id
                         : undefined,
+                // Absent for flows where Link reports no institution; the
+                // backend then reads it off the Item itself.
+                institutionId: metadata.institution?.institution_id,
             });
         },
     };
