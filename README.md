@@ -99,11 +99,12 @@ curl -s -X POST "http://localhost:4001/api/platform/v1/entities" \
 # List the Plaid connections of a workspace (optionally narrowed to entities)
 curl -s "http://localhost:4001/api/platform/v1/plaid-connections?workspaceId=<uuid>&entityIds=<uuid>"
 
-# Create a Plaid connection from a processor token you already have
+# Create a Plaid connection from a processor token you already have, naming
+# the institution your Link flow reported
 # (the UI goes through Plaid Link instead — see "Plaid connections" below)
 curl -s -X POST "http://localhost:4001/api/platform/v1/plaid-connections" \
   -H "Content-Type: application/json" \
-  -d '{"entityId": "<uuid>", "processorToken": "processor-sandbox-<identifier>"}'
+  -d '{"entityId": "<uuid>", "processorToken": "processor-sandbox-<identifier>", "institutionId": "ins_109508"}'
 
 # Delete a Plaid connection (409 when its account carries manual journal entries)
 curl -s -X DELETE "http://localhost:4001/api/platform/v1/plaid-connections/<uuid>"
@@ -189,7 +190,8 @@ Browser                     Demo BFF                    Plaid            Kick
   │ ◀───────── link_token ─────────────────────────────────│               │
   │  (Plaid Link opens, user picks an account)             │               │
   │  POST /demo/v1/plaid-link/connections                  │               │
-  │      { entityId, publicToken, accountId }              │               │
+  │      { entityId, publicToken, accountId,               │               │
+  │        institutionId }                                 │               │
   │ ─────────────────────────▶ /item/public_token/exchange▶│               │
   │                            /processor/token/create ───▶│               │
   │                              (processor: "kick")       │               │
@@ -206,7 +208,10 @@ Link is filtered to USD credit, depository and loan accounts because Kick
 books nothing else, and a connection covers exactly one account. If your Plaid
 dashboard does not have single-account select enabled, the backend reads the
 Item and fails with a clear message when the link resolves to more than one
-bookable account.
+bookable account. Kick also requires the Plaid `institutionId` on create; the
+browser passes the one Link reported, and when Link reports none the backend
+reads it off the Item, failing with a clear message if Plaid names no
+institution at all.
 
 These three routes (`/api/demo/v1/plaid-link/...`) are the demo's own; every
 other route the BFF exposes mirrors the Platform API exactly.
