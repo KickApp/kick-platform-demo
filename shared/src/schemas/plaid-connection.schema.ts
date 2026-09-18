@@ -54,6 +54,23 @@ export const PROCESSOR_TOKEN_PATTERN =
 export const PLAID_INSTITUTION_ID_PATTERN = /^ins_[0-9a-zA-Z]+$/;
 
 /**
+ * Plaid account types, as the partner's own Link flow reports them. Mirrors
+ * the Plaid SDK's `AccountType` enum, restated upstream for the wire schema.
+ */
+export const platformPlaidAccountTypeSchema = z.enum([
+    "depository",
+    "credit",
+    "loan",
+    "investment",
+    "brokerage",
+    "other",
+]);
+
+export type PlatformPlaidAccountType = z.infer<
+    typeof platformPlaidAccountTypeSchema
+>;
+
+/**
  * Wire shape of a Platform API Plaid connection. `createdAt` is an ISO-8601
  * datetime string. The processor token is never echoed back.
  */
@@ -139,7 +156,11 @@ export type PlatformPlaidConnectionResponse = z.infer<
  * Kick the resulting `processor_token`, so there is no link-token or
  * public-token exchange on this surface. `institutionId` is required: no
  * processor endpoint names the institution, and it is what resolves the
- * connection's institution name and logo.
+ * connection's institution name and logo. Kick makes no Plaid account call at
+ * creation time, so the account the token points at is declared here too:
+ * `accountId` and `accountType` are required (`investment` and `brokerage`
+ * types are rejected), and the account is created from `accountName` (the
+ * institution name when omitted) and `accountNumberMask`.
  */
 export const createPlatformPlaidConnectionBodySchema = z.object({
     entityId: z.string().uuid(),
@@ -157,6 +178,11 @@ export const createPlatformPlaidConnectionBodySchema = z.object({
             PLAID_INSTITUTION_ID_PATTERN,
             "institutionId must be a Plaid institution id like ins_109508",
         ),
+    accountId: z.string().min(1).max(128),
+    accountType: platformPlaidAccountTypeSchema,
+    accountSubtype: z.string().min(1).max(64).optional(),
+    accountName: z.string().min(1).max(100).optional(),
+    accountNumberMask: z.string().min(1).max(20).optional(),
 });
 
 export type CreatePlatformPlaidConnectionBody = z.infer<

@@ -1,5 +1,9 @@
 import { initServer } from "@ts-rest/express";
-import { plaidLinkContract } from "@kick-demo/shared";
+import {
+    plaidLinkContract,
+    platformPlaidAccountTypeSchema,
+    type PlaidLinkAccount,
+} from "@kick-demo/shared";
 import {
     AccountBase,
     AccountType,
@@ -33,9 +37,19 @@ const LINK_ACCOUNT_FILTERS = {
     loan: { account_subtypes: [LoanAccountSubtype.All] },
 };
 
+/**
+ * Kick books credit, depository and loan accounts; the Platform API rejects
+ * `investment` and `brokerage` account types outright.
+ */
+const BOOKABLE_ACCOUNT_TYPES = [
+    AccountType.Credit,
+    AccountType.Depository,
+    AccountType.Loan,
+];
+
 function isBookable(account: AccountBase): boolean {
     return (
-        account.type !== AccountType.Investment &&
+        BOOKABLE_ACCOUNT_TYPES.includes(account.type) &&
         account.balances.iso_currency_code === USD
     );
 }
@@ -48,12 +62,14 @@ function describe(account: AccountBase): string {
 /**
  * Link only reports the selected account when the Plaid dashboard has Account
  * Select enabled, so fall back to reading the Item and requiring that exactly
- * one account is bookable.
+ * one account is bookable. The Platform API makes no Plaid account call at
+ * creation time, so the full declared details are resolved here, not just the
+ * account id.
  */
-async function resolveAccountId(
+async function resolveAccount(
     client: PlaidApi,
     accessToken: string,
-): Promise<string> {
+): Promise<PlaidLinkAccount> {
     const { data } = await client.accountsGet({ access_token: accessToken });
     const bookable = data.accounts.filter(isBookable);
     const [only] = bookable;
@@ -70,7 +86,15 @@ async function resolveAccountId(
                 `${bookable.map(describe).join(", ")}. Enable single-account select in your Plaid dashboard.`,
         );
     }
-    return only.account_id;
+    return {
+        id: only.account_id,
+        // The SDK types `type` as its own enum; the wire schema restates the
+        // same lowercase values, so parsing is the cast-free narrowing.
+        type: platformPlaidAccountTypeSchema.parse(only.type),
+        subtype: only.subtype,
+        name: only.name,
+        mask: only.mask,
+    };
 }
 
 /**
@@ -154,15 +178,16 @@ export const plaidLinkRouter = s.router(plaidLinkContract, {
 
         let processorToken: string;
         let institutionId: string;
+        let account: PlaidLinkAccount;
         try {
             const { data: exchange } =
                 await plaid.client.itemPublicTokenExchange({
                     public_token: body.publicToken,
                 });
 
-            const accountId =
-                body.accountId ??
-                (await resolveAccountId(plaid.client, exchange.access_token));
+            account =
+                body.account ??
+                (await resolveAccount(plaid.client, exchange.access_token));
 
             institutionId =
                 body.institutionId ??
@@ -174,7 +199,7 @@ export const plaidLinkRouter = s.router(plaidLinkContract, {
             const { data: processor } = await plaid.client.processorTokenCreate(
                 {
                     access_token: exchange.access_token,
-                    account_id: accountId,
+                    account_id: account.id,
                     processor: ProcessorTokenCreateRequestProcessorEnum.Kick,
                 },
             );
@@ -191,7 +216,16 @@ export const plaidLinkRouter = s.router(plaidLinkContract, {
         }
 
         const result = await kickClient.plaidConnections.create({
-            body: { entityId: body.entityId, processorToken, institutionId },
+            body: {
+                entityId: body.entityId,
+                processorToken,
+                institutionId,
+                accountId: account.id,
+                accountType: account.type,
+                accountSubtype: account.subtype ?? undefined,
+                accountName: account.name ?? undefined,
+                accountNumberMask: account.mask ?? undefined,
+            },
         });
         if (result.status === 201) {
             return { status: 201 as const, body: result.body };
