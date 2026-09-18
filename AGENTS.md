@@ -103,12 +103,16 @@ owns the whole flow:
    depository/credit/loan accounts).
 2. Plaid Link runs in the browser and returns a public token.
 3. The BFF exchanges it (`/item/public_token/exchange`), resolves the account
-   id (from Link metadata, or by reading the Item when Account Select is off)
-   and the institution id (from Link metadata, or by reading the Item when
-   Link reported none), and calls `/processor/token/create` with
-   `processor: "kick"` — `kick` is a registered Plaid processor.
-4. The BFF posts only the processor token — plus the required `institutionId`
-   — to `POST /platform/v1/plaid-connections`.
+   details — id, type, subtype, name and number mask — (from Link metadata, or
+   by reading the Item when Account Select is off) and the institution id
+   (from Link metadata, or by reading the Item when Link reported none), and
+   calls `/processor/token/create` with `processor: "kick"` — `kick` is a
+   registered Plaid processor.
+4. The BFF posts only the processor token — plus the required `institutionId`,
+   `accountId` and `accountType` and the optional `accountSubtype`,
+   `accountName` and `accountNumberMask` — to
+   `POST /platform/v1/plaid-connections`. Kick makes no Plaid account call at
+   creation time: the account is created from these declared fields.
 
 Invariants worth preserving: the Plaid access token never leaves the backend,
 the browser only ever holds a link token, and Kick only ever receives a

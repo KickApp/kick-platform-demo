@@ -2,9 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     usePlaidLink,
+    type PlaidLinkOnSuccessMetadata,
     type PlaidLinkOptionsWithLinkToken,
 } from "react-plaid-link";
-import type { PlatformEntity } from "@kick-demo/shared";
+import {
+    platformPlaidAccountTypeSchema,
+    type PlaidLinkAccount,
+    type PlatformEntity,
+} from "@kick-demo/shared";
 import {
     createPlaidLinkConnection,
     createPlaidLinkToken,
@@ -12,6 +17,41 @@ import {
 } from "../api/plaid-link";
 import { useWorkspaceEntities } from "../lib/use-workspace-entities";
 import { EmptyMessage, ErrorMessageBox, LoadingMessage } from "./StatusMessage";
+
+/**
+ * Link types these as plain strings but reports empty (or, historically,
+ * null) values for accounts that carry no mask or subtype.
+ */
+function toNullable(value: string | null): string | null {
+    return value !== null && value !== "" ? value : null;
+}
+
+/**
+ * The Platform API creates the Kick account from the details declared at
+ * creation time, so the picked account's id, type, subtype, name and mask are
+ * all forwarded as Link metadata reported them. Undefined when Link did not
+ * report exactly one recognizable account — the backend then resolves the one
+ * eligible account itself.
+ */
+function toLinkAccount(
+    metadata: PlaidLinkOnSuccessMetadata,
+): PlaidLinkAccount | undefined {
+    const [only] = metadata.accounts;
+    if (metadata.accounts.length !== 1 || only === undefined) {
+        return undefined;
+    }
+    const type = platformPlaidAccountTypeSchema.safeParse(only.type);
+    if (!type.success) {
+        return undefined;
+    }
+    return {
+        id: only.id,
+        type: type.data,
+        subtype: toNullable(only.subtype),
+        name: toNullable(only.name),
+        mask: toNullable(only.mask),
+    };
+}
 
 export function CreatePlaidConnectionForm({
     workspaceId,
@@ -119,16 +159,12 @@ function PlaidLinkForm({
             if (publicToken === null) {
                 return;
             }
-            const [only] = metadata.accounts;
             connectMutation.mutate({
                 entityId: selectedEntityIdRef.current,
                 publicToken,
                 // Absent when the Plaid dashboard has no single-account
                 // select; the backend then resolves the account itself.
-                accountId:
-                    metadata.accounts.length === 1 && only !== undefined
-                        ? only.id
-                        : undefined,
+                account: toLinkAccount(metadata),
                 // Absent for flows where Link reports no institution; the
                 // backend then reads it off the Item itself.
                 institutionId: metadata.institution?.institution_id,
