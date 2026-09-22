@@ -58,6 +58,8 @@ plus a small demo-only contract for the Plaid Link flow:
   `/platform/v1/workspaces/:workspaceId/transactions`,
   `/platform/v1/entities/:entityId/chart-of-accounts`,
   `/platform/v1/entities/:entityId/account-groups`,
+  `/platform/v1/entities/:entityId/accounting-migration`,
+  `/platform/v1/entities/:entityId/journal-entries`,
   `/platform/v1/entities/:entityId/reports/*`).
 - The backend consumes it twice: `initClient` against Kick
   (`backend/src/kick-client.ts`) and `initServer`/`createExpressEndpoints`
@@ -71,11 +73,16 @@ plus a small demo-only contract for the Plaid Link flow:
   (400/401/404/409/429) are forwarded verbatim; anything undeclared becomes a
   502 via `UpstreamError`. Deleting a Plaid connection, updating a transaction
   inside a locked bookkeeping period, deleting an account that has journal
-  entries and a blocked account merge are the only routes that answer 409
-  today, but the contract declares the same error superset on every route.
+  entries, a blocked account merge and the accounting-migration routes (a
+  second migration, or triggering rule generation twice) answer 409 today, but
+  the contract declares the same error superset on every route.
   The merge 409 is the one error body that is not plain `{ message }` — it
   carries structured blockers, so its handler forwards the 409 itself instead
-  of going through `forwardUpstreamError`, which would flatten it. Kick
+  of going through `forwardUpstreamError`, which would flatten it. The
+  accounting migration's `generate-transaction-rules` is the one route that
+  declares 422 (workspace not eligible for rule generation);
+  `forwardUpstreamError` does not know that status, so its handlers forward
+  the 422 themselves. Kick
   answers a malformed request with a ts-rest validation envelope
   rather than `{ message }`, so `forwardUpstreamError` unwraps that into a
   readable 400 — without it a plain "startDate must be on or before endDate"
@@ -85,9 +92,14 @@ plus a small demo-only contract for the Plaid Link flow:
   fields the upstream API may include are deliberately not modeled in
   `shared/` and get stripped — keep it that way and do not surface
   Kick-internal concepts in this demo.
-- `shared/src/contracts/plaid-link.contract.ts` is the one contract that is
-  **not** a mirror: `/demo/v1/plaid-link/{config,link-token,connections}`
-  exist only here, implemented in `backend/src/plaid-link-router.ts`. Keep
+- Two contracts are **not** mirrors:
+  `shared/src/contracts/plaid-link.contract.ts`
+  (`/demo/v1/plaid-link/{config,link-token,connections}`, implemented in
+  `backend/src/plaid-link-router.ts`) and
+  `shared/src/contracts/accounting-migration.contract.ts`
+  (`/demo/v1/accounting-migration/run`, implemented in
+  `backend/src/accounting-migration-router.ts` — see
+  [The accounting migration flow](#the-accounting-migration-flow)). Keep
   demo-only routes under `/demo/` and out of `platform.contract.ts` so the
   mirror stays a mirror.
 - The webhook receiver (`backend/src/webhook-router.ts`, mounted at
@@ -119,6 +131,34 @@ the browser only ever holds a link token, and Kick only ever receives a
 processor token. Plaid SDK rejections are unwrapped by `toPlaidRequestError`
 into a readable 400 — without it the caller only sees "Request failed with
 status code 400".
+
+## The accounting migration flow
+
+The Platform API has no single "migrate historical books" call: the partner
+starts a migration, pushes historical journal entries, then triggers rule
+generation. `POST /api/demo/v1/accounting-migration/run`
+(`backend/src/accounting-migration-router.ts`) chains the three upstream calls
+so the Migration tab's form makes one request:
+
+1. `POST /platform/v1/entities/:entityId/accounting-migration` — while the
+   migration is open, Kick pauses automatic transaction enrichment. A 409 here
+   is ambiguous (migration already exists, or the entity has opening
+   balances), so the handler reads the resource: an existing migration is
+   reused — that is what makes a retry after a partial failure work — and
+   otherwise the original 409 is forwarded.
+2. `POST .../journal-entries/bulk` — atomic upstream, so a validation failure
+   creates nothing and leaves only the reusable migration behind.
+3. `POST .../accounting-migration/generate-transaction-rules` — queues rule
+   generation and answers 202; the migration's `enrichmentRulesSeededAt` flips
+   when it finishes, and the frontend polls the mirrored `get` until then.
+   Only cash-ledger lines on income/expense accounts dated in the year before
+   the entity's bookkeeping start date feed generation, which is why the form
+   defaults its dates to the day before that and clamps them with `max`.
+
+The form deliberately does not expose free-form multi-line entries: each row is
+one balanced two-line journal entry (debit account, credit account, amount), so
+an unbalanced payload is unrepresentable. The line `description` is what rule
+generation clusters on — it goes on both lines, plus the entry `memo`.
 
 ## Receiving webhooks
 
@@ -175,9 +215,9 @@ the rollup to group them.
 
 ## Vendored resources and deliberate gaps
 
-Seven resources are vendored: workspaces, entities, Plaid connections,
-transactions, the chart of accounts, account groups and reports. Some upstream
-routes are intentionally left out:
+Nine resources are vendored: workspaces, entities, Plaid connections,
+transactions, the chart of accounts, account groups, accounting migrations,
+journal entries and reports. Some upstream routes are intentionally left out:
 
 - Transactions: `list` and `update`. The upstream `get` is not vendored — the
   listing already carries the whole row.
@@ -198,12 +238,22 @@ routes are intentionally left out:
   accounts and child groups to its parent, so it never answers 409. Group
   membership is not written here: it is the `groupId` field on the account,
   written through the chart-of-accounts `create`/`update` routes.
+- Journal entries: only `list` and the atomic `bulkCreate`. The single
+  `get`/`create`/`update`/`delete` are left out — the demo only pushes
+  historical entries in bulk during an accounting migration and reads them
+  back as a listing, which already carries every line. `classIds` on the write
+  shape stays unused: classes themselves are not vendored.
+- Accounting migrations: the full upstream surface (`create`, `get`,
+  `generateTransactionRules`) is mirrored, but the UI drives the demo's own
+  orchestration route instead and uses the mirrored `get` for polling; the
+  mirrored writes are kept for parity and curl use, like the Plaid `create`.
 - Plaid: the Platform API's `create` takes a `processor_token` and has no
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is
   kept for parity and curl use.
-- Classes, journal entries, ledgers and transaction rules are not vendored at
-  all.
+- Classes, ledgers and transaction rules are not vendored at all — the rules
+  seeded by an accounting migration are only observable in the Kick app, not
+  through this demo.
 
 ## Cash basis only
 

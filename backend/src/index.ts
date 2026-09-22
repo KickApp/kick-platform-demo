@@ -1,7 +1,12 @@
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import { createExpressEndpoints } from "@ts-rest/express";
-import { plaidLinkContract, platformContract } from "@kick-demo/shared";
+import {
+    accountingMigrationRunContract,
+    plaidLinkContract,
+    platformContract,
+} from "@kick-demo/shared";
+import { accountingMigrationRunRouter } from "./accounting-migration-router";
 import { config } from "./config";
 import { UpstreamError } from "./kick-client";
 import { plaidLinkRouter } from "./plaid-link-router";
@@ -52,6 +57,17 @@ createExpressEndpoints(plaidLinkContract, plaidLinkRouter, apiRouter, {
     logInitialization: false,
     responseValidation: true,
 });
+// The demo's accounting-migration orchestration (start migration, bulk-create
+// historical journal entries, queue rule generation), also under /demo/.
+createExpressEndpoints(
+    accountingMigrationRunContract,
+    accountingMigrationRunRouter,
+    apiRouter,
+    {
+        logInitialization: false,
+        responseValidation: true,
+    },
+);
 app.use("/api", apiRouter);
 
 app.use(
