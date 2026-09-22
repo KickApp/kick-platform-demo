@@ -3,7 +3,10 @@ import {
     platformPaginationQuerySchema,
     platformPaginationSchema,
 } from "./pagination.schema";
-import { journalEntrySourceTypeSchema, ledgerBasisSchema } from "./report.schema";
+import {
+    journalEntrySourceTypeSchema,
+    ledgerBasisSchema,
+} from "./report.schema";
 
 /**
  * Journal entries on the Platform API are the manual journal entries a partner
