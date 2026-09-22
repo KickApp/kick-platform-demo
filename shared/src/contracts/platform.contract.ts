@@ -2,6 +2,17 @@ import { initContract } from "@ts-rest/core";
 import { errorMessageSchema } from "../schemas/error.schema";
 import { platformPaginationQuerySchema } from "../schemas/pagination.schema";
 import {
+    platformAccountingMigrationPathParamsSchema,
+    platformAccountingMigrationResponseSchema,
+} from "../schemas/accounting-migration.schema";
+import {
+    platformJournalEntriesBulkCreateBodySchema,
+    platformJournalEntriesBulkCreateResponseSchema,
+    platformJournalEntriesListQuerySchema,
+    platformJournalEntriesListResponseSchema,
+    platformJournalEntriesPathParamsSchema,
+} from "../schemas/journal-entry.schema";
+import {
     platformAccountGroupPathParamsSchema,
     platformAccountGroupResponseSchema,
     platformAccountGroupsListQuerySchema,
@@ -378,6 +389,84 @@ const accountGroupsContract = c.router(
 );
 
 /**
+ * An entity keeps at most one accounting migration, so the resource is
+ * singular under the entity uuid. The intended flow: create the migration
+ * first (it pauses automatic transaction enrichment so half-seeded rules never
+ * race live categorization), push the historical journal entries through the
+ * journal-entries routes, then trigger transaction-rule generation and poll
+ * `enrichmentRulesSeededAt` until it flips. `generateTransactionRules` is the
+ * one route on this mirror that answers 422: the workspace can be ineligible
+ * for rule generation.
+ */
+const accountingMigrationContract = c.router(
+    {
+        create: {
+            method: "POST",
+            path: "",
+            pathParams: platformAccountingMigrationPathParamsSchema,
+            body: c.noBody(),
+            responses: {
+                201: platformAccountingMigrationResponseSchema,
+                ...errorResponses,
+            },
+        },
+        get: {
+            method: "GET",
+            path: "",
+            pathParams: platformAccountingMigrationPathParamsSchema,
+            responses: {
+                200: platformAccountingMigrationResponseSchema,
+                ...errorResponses,
+            },
+        },
+        generateTransactionRules: {
+            method: "POST",
+            path: "/generate-transaction-rules",
+            pathParams: platformAccountingMigrationPathParamsSchema,
+            body: c.noBody(),
+            responses: {
+                202: platformAccountingMigrationResponseSchema,
+                ...errorResponses,
+                422: errorMessageSchema,
+            },
+        },
+    },
+    { pathPrefix: "/platform/v1/entities/:entityId/accounting-migration" },
+);
+
+/**
+ * Manual journal entries of one entity's accounting ledger. Only `list` and
+ * the atomic `bulkCreate` are vendored — the single get/create/update/delete
+ * stay a deliberate gap, since the demo only pushes historical entries in bulk
+ * during an accounting migration and reads them back as a listing.
+ */
+const journalEntriesContract = c.router(
+    {
+        list: {
+            method: "GET",
+            path: "",
+            pathParams: platformJournalEntriesPathParamsSchema,
+            query: platformJournalEntriesListQuerySchema,
+            responses: {
+                200: platformJournalEntriesListResponseSchema,
+                ...errorResponses,
+            },
+        },
+        bulkCreate: {
+            method: "POST",
+            path: "/bulk",
+            pathParams: platformJournalEntriesPathParamsSchema,
+            body: platformJournalEntriesBulkCreateBodySchema,
+            responses: {
+                201: platformJournalEntriesBulkCreateResponseSchema,
+                ...errorResponses,
+            },
+        },
+    },
+    { pathPrefix: "/platform/v1/entities/:entityId/journal-entries" },
+);
+
+/**
  * Reports are scoped to a single entity and a single date range. `groupBy`
  * splits that range into columns without changing the response shape; the
  * general ledger lists individual postings instead of period aggregates and so
@@ -446,5 +535,7 @@ export const platformContract = c.router({
     transactions: transactionsContract,
     chartOfAccounts: chartOfAccountsContract,
     accountGroups: accountGroupsContract,
+    accountingMigration: accountingMigrationContract,
+    journalEntries: journalEntriesContract,
     reports: reportsContract,
 });

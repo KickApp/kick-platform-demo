@@ -227,6 +227,64 @@ export const platformRouter = s.router(platformContract, {
             return forwardUpstreamError(result);
         },
     },
+    accountingMigration: {
+        create: async ({ params }) => {
+            const result = await kickClient.accountingMigration.create({
+                params,
+            });
+            if (result.status === 201) {
+                return { status: 201, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        get: async ({ params }) => {
+            const result = await kickClient.accountingMigration.get({
+                params,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        // 422 (workspace not eligible for rule generation) is declared only on
+        // this route, so it is forwarded here; forwardUpstreamError would turn
+        // it into a 502.
+        generateTransactionRules: async ({ params }) => {
+            const result =
+                await kickClient.accountingMigration.generateTransactionRules({
+                    params,
+                });
+            if (result.status === 202) {
+                return { status: 202, body: result.body };
+            }
+            if (result.status === 422) {
+                return { status: 422, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+    },
+    journalEntries: {
+        list: async ({ params, query }) => {
+            const result = await kickClient.journalEntries.list({
+                params,
+                query,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        bulkCreate: async ({ params, body }) => {
+            const result = await kickClient.journalEntries.bulkCreate({
+                params,
+                body,
+            });
+            if (result.status === 201) {
+                return { status: 201, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+    },
     reports: {
         profitAndLoss: async ({ params, query }) => {
             const result = await kickClient.reports.profitAndLoss({
