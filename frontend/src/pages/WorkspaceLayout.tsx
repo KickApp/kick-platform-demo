@@ -6,6 +6,7 @@ import {
     ErrorMessageBox,
     LoadingMessage,
 } from "../components/StatusMessage";
+import { WorkspacePlanControl } from "../components/WorkspacePlanControl";
 import { formatDateTime } from "../lib/format";
 import type { WorkspaceOutletContext } from "../lib/workspace-context";
 
@@ -57,6 +58,7 @@ export function WorkspaceLayout() {
                             {formatDateTime(workspaceQuery.data.createdAt)}
                         </p>
                     </div>
+                    <WorkspacePlanControl workspace={workspaceQuery.data} />
                 </div>
             )}
 

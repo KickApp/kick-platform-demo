@@ -53,8 +53,8 @@ One vendored ts-rest contract mirroring the Platform API, used on both hops,
 plus a small demo-only contract for the Plaid Link flow:
 
 - `shared/src/contracts/platform.contract.ts` mirrors the upstream contract
-  paths exactly (`/platform/v1/workspaces`, `/platform/v1/entities`,
-  `/platform/v1/plaid-connections`,
+  paths exactly (`/platform/v1/organization`, `/platform/v1/workspaces`,
+  `/platform/v1/entities`, `/platform/v1/plaid-connections`,
   `/platform/v1/workspaces/:workspaceId/transactions`,
   `/platform/v1/entities/:entityId/chart-of-accounts`,
   `/platform/v1/entities/:entityId/account-groups`,
@@ -162,8 +162,12 @@ When the Platform API changes, update `shared/` to match.
 Enums are vendored as `as const` arrays fed to `z.enum`, which means a value
 Kick adds upstream fails the BFF's response validation until it is copied here.
 That is the trade for catching drift early; the enums to watch are the account
-types and classes in `chart-of-accounts.schema.ts` and the report section enums
-in `report.schema.ts`.
+types and classes in `chart-of-accounts.schema.ts`, the report section enums
+in `report.schema.ts`, and the workspace plans in `workspace.schema.ts`
+(`WORKSPACE_PLANS` for reads versus the `WORKSPACE_ASSIGNABLE_PLANS` subset a
+write may carry — which of those the organization can actually use comes off
+the wire as `allowedPlans` on `GET /platform/v1/organization`, and that list is
+what every plan picker offers).
 
 Drift cuts the other way too, and more quietly: an extra value here only breaks
 once something writes it. `ACCOUNT_TYPES` carried two types Kick does not have
@@ -175,10 +179,16 @@ the rollup to group them.
 
 ## Vendored resources and deliberate gaps
 
-Seven resources are vendored: workspaces, entities, Plaid connections,
-transactions, the chart of accounts, account groups and reports. Some upstream
-routes are intentionally left out:
+Eight resources are vendored: the organization, workspaces, entities, Plaid
+connections, transactions, the chart of accounts, account groups and reports.
+Some upstream routes are intentionally left out:
 
+- Workspaces: `list`, `create`, `get` and `update`. `create` requires a `plan`
+  and `update`'s body is `{ plan }` and nothing else — both mirror upstream,
+  where changing the plan requires the organization to own the workspace
+  billing and takes effect immediately. The upstream `delete` (permanent, with
+  everything in the workspace) is deliberately not vendored: too destructive
+  for a demo surface.
 - Transactions: `list` and `update`. The upstream `get` is not vendored — the
   listing already carries the whole row.
 - Chart of accounts: everything except `get`, for the same reason as

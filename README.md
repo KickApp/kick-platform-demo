@@ -1,9 +1,10 @@
 # kick-platform-demo
 
 Demo app for the [Kick](https://kick.co) Platform API: a React frontend and a
-small Express BFF backend covering **workspaces**, **entities**, **Plaid
-connections**, **transactions**, the **chart of accounts**, **account groups**
-and **reports** through the external Platform API.
+small Express BFF backend covering the **organization**, **workspaces**,
+**entities**, **Plaid connections**, **transactions**, the **chart of
+accounts**, **account groups** and **reports** through the external Platform
+API.
 
 Opening a workspace gives six tabs: manage its entities, manage an entity's
 chart of accounts (create, rename, move between groups, archive, delete),
@@ -79,13 +80,22 @@ npm run format        # prettier
 ## Curl examples (against the BFF)
 
 ```bash
+# Get the organization behind the token, including the plans it may assign
+curl -s "http://localhost:4001/api/platform/v1/organization"
+
 # List workspaces
 curl -s "http://localhost:4001/api/platform/v1/workspaces?limit=10"
 
-# Create a workspace
+# Create a workspace. plan is required and must be one of the organization's
+# allowedPlans (see the organization endpoint above)
 curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces" \
   -H "Content-Type: application/json" \
-  -d '{"name": "Acme Inc."}'
+  -d '{"name": "Acme Inc.", "plan": "FREE"}'
+
+# Change a workspace's plan; it takes effect immediately
+curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"plan": "PLUS"}'
 
 # List entities of a workspace
 curl -s "http://localhost:4001/api/platform/v1/entities?workspaceId=<uuid>"
@@ -360,7 +370,7 @@ requested on the cash basis.
 shared/    Vendored Platform API contract + Zod schemas (ts-rest), used by both sides
 backend/   Express BFF: authenticates to Kick, passes requests/errors through,
            logs incoming webhooks
-frontend/  React app: workspaces list/create, then per-workspace entities,
+frontend/  React app: workspaces list/create/change-plan, then per-workspace entities,
            chart of accounts, account groups, Plaid connections, transactions
            and reports tabs
 ```

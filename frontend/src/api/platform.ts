@@ -14,6 +14,7 @@ import {
     type PlatformUpdateAccountBody,
     type PlatformUpdateAccountGroupBody,
     type ReportGroupBy,
+    type UpdatePlatformWorkspaceBody,
 } from "@kick-demo/shared";
 import { ApiError, toApiError } from "./errors";
 
@@ -22,6 +23,18 @@ import { ApiError, toApiError } from "./errors";
  * under `/api` (proxied to the backend by the Vite dev server).
  */
 const api = initClient(platformContract, { baseUrl: "/api" });
+
+/**
+ * The organization behind the access token; its `allowedPlans` is what every
+ * plan picker offers.
+ */
+export async function fetchOrganization() {
+    const result = await api.organization.get();
+    if (result.status === 200) {
+        return result.body.organization;
+    }
+    throw toApiError(result);
+}
 
 export async function fetchWorkspaces(query: {
     limit: number;
@@ -45,6 +58,24 @@ export async function fetchWorkspace(workspaceId: string) {
 export async function createWorkspace(body: CreatePlatformWorkspaceBody) {
     const result = await api.workspaces.create({ body });
     if (result.status === 201) {
+        return result.body.workspace;
+    }
+    throw toApiError(result);
+}
+
+/** The update body is the plan and nothing else; it takes effect immediately. */
+export async function updateWorkspace({
+    workspaceId,
+    body,
+}: {
+    workspaceId: string;
+    body: UpdatePlatformWorkspaceBody;
+}) {
+    const result = await api.workspaces.update({
+        params: { workspaceId },
+        body,
+    });
+    if (result.status === 200) {
         return result.body.workspace;
     }
     throw toApiError(result);
