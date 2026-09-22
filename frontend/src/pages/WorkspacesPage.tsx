@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
+import { WORKSPACE_PLAN_LABELS } from "@kick-demo/shared";
 import { fetchWorkspaces } from "../api/platform";
 import { CreateWorkspaceForm } from "../components/CreateWorkspaceForm";
 import { Pagination } from "../components/Pagination";
@@ -63,6 +64,7 @@ export function WorkspacesPage() {
                         <thead>
                             <tr>
                                 <th>Name</th>
+                                <th>Plan</th>
                                 <th>Created</th>
                                 <th>ID</th>
                             </tr>
@@ -77,6 +79,9 @@ export function WorkspacesPage() {
                                         >
                                             {workspace.name}
                                         </Link>
+                                    </td>
+                                    <td>
+                                        {WORKSPACE_PLAN_LABELS[workspace.plan]}
                                     </td>
                                     <td>
                                         {formatDateTime(workspace.createdAt)}

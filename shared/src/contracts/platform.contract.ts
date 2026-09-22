@@ -60,7 +60,9 @@ import {
     platformWorkspacePathParamsSchema,
     platformWorkspaceResponseSchema,
     platformWorkspacesListResponseSchema,
+    updatePlatformWorkspaceBodySchema,
 } from "../schemas/workspace.schema";
+import { platformOrganizationResponseSchema } from "../schemas/organization.schema";
 
 const c = initContract();
 
@@ -115,8 +117,39 @@ const workspacesContract = c.router(
                 ...errorResponses,
             },
         },
+        // Changes the plan and nothing else — that is the whole update body
+        // upstream. The organization must own the workspace billing.
+        update: {
+            method: "PATCH",
+            path: "/:workspaceId",
+            pathParams: platformWorkspacePathParamsSchema,
+            body: updatePlatformWorkspaceBodySchema,
+            responses: {
+                200: platformWorkspaceResponseSchema,
+                ...errorResponses,
+            },
+        },
     },
     { pathPrefix: "/platform/v1/workspaces" },
+);
+
+/**
+ * The organization is the token's principal, so the route takes no id: it
+ * returns the organization behind the access token, including the plans it may
+ * assign to a client workspace (which drives the plan pickers).
+ */
+const organizationContract = c.router(
+    {
+        get: {
+            method: "GET",
+            path: "",
+            responses: {
+                200: platformOrganizationResponseSchema,
+                ...errorResponses,
+            },
+        },
+    },
+    { pathPrefix: "/platform/v1/organization" },
 );
 
 const entitiesContract = c.router(
@@ -440,6 +473,7 @@ const reportsContract = c.router(
 );
 
 export const platformContract = c.router({
+    organization: organizationContract,
     workspaces: workspacesContract,
     entities: entitiesContract,
     plaidConnections: plaidConnectionsContract,

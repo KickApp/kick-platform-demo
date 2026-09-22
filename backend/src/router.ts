@@ -10,6 +10,15 @@ const s = initServer();
  * response. The only thing added server-side is the bearer token.
  */
 export const platformRouter = s.router(platformContract, {
+    organization: {
+        get: async () => {
+            const result = await kickClient.organization.get();
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+    },
     workspaces: {
         list: async ({ query }) => {
             const result = await kickClient.workspaces.list({ query });
@@ -27,6 +36,16 @@ export const platformRouter = s.router(platformContract, {
         },
         get: async ({ params }) => {
             const result = await kickClient.workspaces.get({ params });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        update: async ({ params, body }) => {
+            const result = await kickClient.workspaces.update({
+                params,
+                body,
+            });
             if (result.status === 200) {
                 return { status: 200, body: result.body };
             }
