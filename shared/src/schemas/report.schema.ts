@@ -68,12 +68,28 @@ export const platformReportQuerySchema = z.object({
 export type PlatformReportQuery = z.infer<typeof platformReportQuerySchema>;
 
 /**
- * The general ledger lists individual dated postings rather than period
- * aggregates, so it is the one report that takes no `groupBy`.
+ * A single value and a repeated (or indexed) query param both normalize to an
+ * array; an empty value reads as "filter not provided".
  */
-export const platformGeneralLedgerQuerySchema = z.object(
-    platformReportRangeShape,
-);
+const uuidArrayQueryParamSchema = z.preprocess((value) => {
+    if (value === undefined || value === null || value === "") {
+        return undefined;
+    }
+    return Array.isArray(value) ? value : [value];
+}, z.array(z.string().uuid()).min(1).optional());
+
+/**
+ * The general ledger lists individual dated postings rather than period
+ * aggregates, so it is the one report that takes no `groupBy`. It is also the
+ * one report that can be narrowed to a subset of accounts: `accountIds` and
+ * `groupIds` (which covers nested subgroups) are OR-ed into one selection, so
+ * mixing the two widens the report rather than intersecting it.
+ */
+export const platformGeneralLedgerQuerySchema = z.object({
+    ...platformReportRangeShape,
+    accountIds: uuidArrayQueryParamSchema,
+    groupIds: uuidArrayQueryParamSchema,
+});
 
 export type PlatformGeneralLedgerQuery = z.infer<
     typeof platformGeneralLedgerQuerySchema

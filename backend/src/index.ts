@@ -1,6 +1,7 @@
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import { createExpressEndpoints } from "@ts-rest/express";
+import qs from "qs";
 import { plaidLinkContract, platformContract } from "@kick-demo/shared";
 import { config } from "./config";
 import { UpstreamError } from "./kick-client";
@@ -11,6 +12,12 @@ import { kickWebhookRouter } from "./webhook-router";
 const WEBHOOKS_PATH = "/api/demo/v1/webhooks";
 
 const app = express();
+
+// ts-rest sends arrays as `key[0]=...`, and qs's default arrayLimit of 20 turns
+// a longer list (e.g. many general ledger accountIds) into an object.
+app.set("query parser", (query: string) =>
+    qs.parse(query, { arrayLimit: 1000 }),
+);
 
 // Express generates weak ETags for res.json bodies, which turns repeat reads
 // into 304s served from the browser cache. This demo always shows live data
