@@ -495,14 +495,29 @@ export async function fetchTrialBalanceReport(query: ReportQuery) {
     throw toApiError(result);
 }
 
+/**
+ * An empty selection means "every account", so it is left off the request
+ * rather than sent as an empty filter.
+ */
 export async function fetchGeneralLedgerReport({
     entityId,
     startDate,
     endDate,
-}: Omit<ReportQuery, "groupBy">) {
+    accountIds,
+    groupIds,
+}: Omit<ReportQuery, "groupBy"> & {
+    accountIds: string[];
+    groupIds: string[];
+}) {
     const result = await api.reports.generalLedger({
         params: { entityId },
-        query: { startDate, endDate, ledgerBasis: CASH_BASIS },
+        query: {
+            startDate,
+            endDate,
+            ledgerBasis: CASH_BASIS,
+            ...(accountIds.length > 0 && { accountIds }),
+            ...(groupIds.length > 0 && { groupIds }),
+        },
     });
     if (result.status === 200) {
         return result.body.report;

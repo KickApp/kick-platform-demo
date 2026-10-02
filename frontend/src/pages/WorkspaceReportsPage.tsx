@@ -21,6 +21,11 @@ import {
     fetchTrialBalanceReport,
 } from "../api/platform";
 import { CashFlowSummary } from "../components/reports/CashFlowSummary";
+import {
+    EMPTY_GENERAL_LEDGER_SELECTION,
+    GeneralLedgerFilters,
+    type GeneralLedgerSelection,
+} from "../components/reports/GeneralLedgerFilters";
 import { GeneralLedgerTable } from "../components/reports/GeneralLedgerTable";
 import { ReportSectionsTable } from "../components/reports/ReportSectionsTable";
 import { TrialBalanceTable } from "../components/reports/TrialBalanceTable";
@@ -68,11 +73,12 @@ type ReportRequest = {
     startDate: string;
     endDate: string;
     groupBy: ReportGroupBy;
+    ledgerSelection: GeneralLedgerSelection;
 };
 
 async function fetchReport(
     reportType: ReportType,
-    request: ReportRequest,
+    { ledgerSelection, ...request }: ReportRequest,
 ): Promise<ReportResult> {
     switch (reportType) {
         case "profit-and-loss":
@@ -98,7 +104,10 @@ async function fetchReport(
         case "general-ledger":
             return {
                 type: reportType,
-                report: await fetchGeneralLedgerReport(request),
+                report: await fetchGeneralLedgerReport({
+                    ...request,
+                    ...ledgerSelection,
+                }),
             };
     }
 }
@@ -116,6 +125,9 @@ export function WorkspaceReportsPage() {
     const [startDate, setStartDate] = useState(currentYearStartIsoDate);
     const [endDate, setEndDate] = useState(todayIsoDate);
     const [groupBy, setGroupBy] = useState<ReportGroupBy>("total");
+    const [ledgerSelection, setLedgerSelection] = useState(
+        EMPTY_GENERAL_LEDGER_SELECTION,
+    );
 
     const entityId =
         selectedEntityId !== ""
@@ -124,6 +136,16 @@ export function WorkspaceReportsPage() {
     // The general ledger lists individual postings, so it takes no grouping.
     const isGroupable = reportType !== "general-ledger";
     const effectiveGroupBy = isGroupable ? groupBy : "total";
+    // Only the general ledger can be narrowed to accounts or groups.
+    const effectiveLedgerSelection: GeneralLedgerSelection = isGroupable
+        ? EMPTY_GENERAL_LEDGER_SELECTION
+        : {
+              accountIds: [...ledgerSelection.accountIds].sort(),
+              groupIds: [...ledgerSelection.groupIds].sort(),
+          };
+    const hasLedgerSelection =
+        effectiveLedgerSelection.accountIds.length > 0 ||
+        effectiveLedgerSelection.groupIds.length > 0;
 
     const reportQuery = useQuery({
         queryKey: [
@@ -133,6 +155,7 @@ export function WorkspaceReportsPage() {
             startDate,
             endDate,
             effectiveGroupBy,
+            effectiveLedgerSelection,
         ],
         queryFn: () =>
             fetchReport(reportType, {
@@ -140,6 +163,7 @@ export function WorkspaceReportsPage() {
                 startDate,
                 endDate,
                 groupBy: effectiveGroupBy,
+                ledgerSelection: effectiveLedgerSelection,
             }),
         enabled: entityId !== "" && startDate <= endDate,
     });
@@ -178,9 +202,12 @@ export function WorkspaceReportsPage() {
                     <span className="field-label">Entity</span>
                     <select
                         value={entityId}
-                        onChange={(event) =>
-                            setSelectedEntityId(event.target.value)
-                        }
+                        onChange={(event) => {
+                            setSelectedEntityId(event.target.value);
+                            // Accounts and groups belong to one entity, and
+                            // Kick rejects ids from another.
+                            setLedgerSelection(EMPTY_GENERAL_LEDGER_SELECTION);
+                        }}
                     >
                         {entities.entities.map((entity) => (
                             <option key={entity.id} value={entity.id}>
@@ -242,6 +269,13 @@ export function WorkspaceReportsPage() {
                     </label>
                 )}
             </div>
+            {!isGroupable && (
+                <GeneralLedgerFilters
+                    entityId={entityId}
+                    selection={ledgerSelection}
+                    onChange={setLedgerSelection}
+                />
+            )}
 
             {startDate > endDate && (
                 <EmptyMessage>
@@ -254,12 +288,23 @@ export function WorkspaceReportsPage() {
             {reportQuery.error !== null && (
                 <ErrorMessageBox error={reportQuery.error} />
             )}
-            {reportQuery.data && <ReportBody result={reportQuery.data} />}
+            {reportQuery.data && (
+                <ReportBody
+                    result={reportQuery.data}
+                    hasLedgerSelection={hasLedgerSelection}
+                />
+            )}
         </section>
     );
 }
 
-function ReportBody({ result }: { result: ReportResult }) {
+function ReportBody({
+    result,
+    hasLedgerSelection,
+}: {
+    result: ReportResult;
+    hasLedgerSelection: boolean;
+}) {
     switch (result.type) {
         case "profit-and-loss":
             return result.report.sections.length === 0 ? (
@@ -328,7 +373,9 @@ function ReportBody({ result }: { result: ReportResult }) {
         case "general-ledger":
             return result.report.accounts.length === 0 ? (
                 <EmptyMessage>
-                    No ledger postings in the selected period.
+                    {hasLedgerSelection
+                        ? "No ledger postings for the selected accounts or groups in this period."
+                        : "No ledger postings in the selected period."}
                 </EmptyMessage>
             ) : (
                 <GeneralLedgerTable report={result.report} />
