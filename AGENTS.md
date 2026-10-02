@@ -208,6 +208,14 @@ Some upstream routes are intentionally left out:
   accounts and child groups to its parent, so it never answers 409. Group
   membership is not written here: it is the `groupId` field on the account,
   written through the chart-of-accounts `create`/`update` routes.
+- Reports: all five. The general ledger is the only one that takes
+  `accountIds` / `groupIds` filters, which Kick OR-s into one selection (a
+  group covers its nested subgroups). The Reports tab offers them as two
+  multi-selects, cleared whenever the entity changes because ids from another
+  entity are rejected. ts-rest sends arrays as indexed `key[0]=...` params,
+  which is why the BFF sets a `qs` query parser with a raised `arrayLimit` in
+  `backend/src/index.ts` — Express's default stops building an array past
+  index 20.
 - Plaid: the Platform API's `create` takes a `processor_token` and has no
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is

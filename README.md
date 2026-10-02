@@ -183,6 +183,10 @@ curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/reports/profit-an
 
 # The general ledger lists individual postings, so it takes no groupBy
 curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/reports/general-ledger?startDate=2026-01-01&endDate=2026-12-31&ledgerBasis=cash"
+
+# Narrow it to accounts and/or account groups (repeat a param for several);
+# the two lists are OR-ed, and a group includes its nested subgroups
+curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/reports/general-ledger?startDate=2026-01-01&endDate=2026-12-31&accountIds=<uuid>&accountIds=<uuid>&groupIds=<uuid>"
 ```
 
 The same paths work directly against the Kick API — replace the host with
