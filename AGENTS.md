@@ -68,11 +68,12 @@ plus a small demo-only contract for the Plaid Link flow:
   backend (`frontend/vite.config.ts`, override target with `BACKEND_URL`, e.g.
   `http://host.docker.internal:4001` when running inside Docker).
 - Handlers are pure pass-through. Declared upstream errors
-  (400/401/404/409/429) are forwarded verbatim; anything undeclared becomes a
-  502 via `UpstreamError`. Deleting a Plaid connection, updating a transaction
-  inside a locked bookkeeping period, deleting an account that has journal
-  entries and a blocked account merge are the only routes that answer 409
-  today, but the contract declares the same error superset on every route.
+  (400/401/404/409/422/429) are forwarded verbatim; anything undeclared becomes
+  a 502 via `UpstreamError`. Deleting a Plaid connection, updating a
+  transaction inside a locked bookkeeping period, deleting an account that has
+  journal entries and a blocked account merge are the only routes that answer
+  409 today, and preparing categorization is the only one that answers 422,
+  but the contract declares the same error superset on every route.
   The merge 409 is the one error body that is not plain `{ message }` — it
   carries structured blockers, so its handler forwards the 409 itself instead
   of going through `forwardUpstreamError`, which would flatten it. Kick
@@ -201,7 +202,11 @@ Some upstream routes are intentionally left out:
   shape carries no flag for which accounts refuse which write (or which pairs
   can merge), so the UI offers everything and surfaces Kick's message when it
   declines — for a blocked merge that message is built from the 409's
-  structured `blockers`.
+  structured `blockers`. `prepareCategorization` queues the mapping of Kick's
+  built-in categories onto a custom chart (202, no body, asynchronous and safe
+  to repeat) and answers 422 for an entity on the standard chart. The entity
+  wire shape carries no chart-setup flag either, so the button is offered for
+  every entity and the 422 message explains a refusal.
 - Account groups: everything except `get`, again because the listing carries
   the whole row. A group's type is fixed on creation — `update` renames and/or
   re-parents (null re-roots at the top level) — and `delete` lifts the group's

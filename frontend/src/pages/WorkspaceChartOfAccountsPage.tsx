@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
     fetchAllAccountGroups,
     fetchAllChartOfAccounts,
+    prepareCategorization,
 } from "../api/platform";
 import { BulkCreateAccountsForm } from "../components/BulkCreateAccountsForm";
 import { ChartOfAccountsTable } from "../components/ChartOfAccountsTable";
@@ -47,6 +48,8 @@ export function WorkspaceChartOfAccountsPage() {
         enabled: entityId !== "",
     });
 
+    const categorization = useMutation({ mutationFn: prepareCategorization });
+
     if (entities.isPending) {
         return <LoadingMessage label="entities" />;
     }
@@ -79,6 +82,17 @@ export function WorkspaceChartOfAccountsPage() {
                 </div>
                 {openForm === "none" && (
                     <div className="row-actions">
+                        <button
+                            type="button"
+                            className="button button-secondary"
+                            title="Maps Kick's built-in categories onto this entity's accounts so automatic categorization posts to them. Only entities on a custom chart of accounts."
+                            disabled={categorization.isPending}
+                            onClick={() => categorization.mutate({ entityId })}
+                        >
+                            {categorization.isPending
+                                ? "Preparing…"
+                                : "Prepare categorization"}
+                        </button>
                         {accountsQuery.data !== undefined &&
                             accountsQuery.data.length >= 2 && (
                                 <button
@@ -115,6 +129,7 @@ export function WorkspaceChartOfAccountsPage() {
                         onChange={(event) => {
                             setSelectedEntityId(event.target.value);
                             setOpenForm("none");
+                            categorization.reset();
                         }}
                     >
                         {entities.entities.map((entity) => (
@@ -125,6 +140,17 @@ export function WorkspaceChartOfAccountsPage() {
                     </select>
                 </label>
             </div>
+
+            {categorization.isSuccess && (
+                <div className="status status-info" role="status">
+                    Queued mapping of Kick's categories onto this entity's
+                    custom chart of accounts. It runs in the background; run it
+                    again after adding accounts.
+                </div>
+            )}
+            {categorization.error !== null && (
+                <ErrorMessageBox error={categorization.error} />
+            )}
 
             {openForm === "single" && (
                 <CreateAccountForm
