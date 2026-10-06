@@ -10,6 +10,7 @@ export const WORKSPACE_PLANS = [
     "FREE",
     "BASIC",
     "PLUS",
+    "ADVANCED",
     "ENTERPRISE",
     "FRESHBOOKS",
     "READ_ONLY",
@@ -29,6 +30,7 @@ export const WORKSPACE_ASSIGNABLE_PLANS = [
     "FREE",
     "BASIC",
     "PLUS",
+    "ADVANCED",
     "READ_ONLY",
 ] as const;
 
@@ -42,7 +44,8 @@ export const WORKSPACE_PLAN_LABELS: Record<WorkspacePlan, string> = {
     FREE: "Free",
     BASIC: "Basic",
     PLUS: "Plus",
-    ENTERPRISE: "Advanced",
+    ADVANCED: "Advanced",
+    ENTERPRISE: "Enterprise",
     FRESHBOOKS: "FreshBooks",
     READ_ONLY: "Read-only",
 };
