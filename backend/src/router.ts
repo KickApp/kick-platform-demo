@@ -197,6 +197,17 @@ export const platformRouter = s.router(platformContract, {
             }
             return { status: forwarded.status, body: forwarded.body };
         },
+        // The upstream 202 carries no body, so neither does this one.
+        prepareCategorization: async ({ params }) => {
+            const result =
+                await kickClient.chartOfAccounts.prepareCategorization({
+                    params,
+                });
+            if (result.status === 202) {
+                return { status: 202, body: undefined };
+            }
+            return forwardUpstreamError(result);
+        },
         // The upstream 200 carries no body, so neither does this one.
         delete: async ({ params }) => {
             const result = await kickClient.chartOfAccounts.delete({ params });

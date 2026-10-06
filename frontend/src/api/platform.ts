@@ -314,6 +314,24 @@ export async function deleteAccount({
 }
 
 /**
+ * Queues the mapping of Kick's categories onto the entity's custom chart of
+ * accounts. Answers 422 for an entity on the standard chart.
+ */
+export async function prepareCategorization({
+    entityId,
+}: {
+    entityId: string;
+}) {
+    const result = await api.chartOfAccounts.prepareCategorization({
+        params: { entityId },
+    });
+    if (result.status === 202) {
+        return;
+    }
+    throw toApiError(result);
+}
+
+/**
  * Merges the source account into the target and deletes the source. A merge
  * blocked by the accounts' state answers 409 with structured blockers, which
  * are folded into the error message so the form can show why Kick declined.

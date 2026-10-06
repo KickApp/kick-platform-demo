@@ -73,18 +73,21 @@ const c = initContract();
  * (base `https://use-dev.kick.co/api`) and the frontend's client against the
  * BFF (base `/api`).
  *
- * Error responses are declared as the superset {400, 401, 404, 409, 429} on
- * every route so the BFF can pass upstream errors through uniformly. Deleting
- * a Plaid connection, updating a transaction inside a locked bookkeeping
- * period, deleting an account that has journal entries and a blocked account
- * merge are the routes that actually answer 409 today; the merge is the one
- * whose 409 body carries structured blockers rather than plain `{ message }`.
+ * Error responses are declared as the superset {400, 401, 404, 409, 422, 429}
+ * on every route so the BFF can pass upstream errors through uniformly.
+ * Deleting a Plaid connection, updating a transaction inside a locked
+ * bookkeeping period, deleting an account that has journal entries and a
+ * blocked account merge are the routes that actually answer 409 today; the
+ * merge is the one whose 409 body carries structured blockers rather than
+ * plain `{ message }`. Preparing categorization for an entity that is not on a
+ * custom chart of accounts is the only route that answers 422.
  */
 const errorResponses = {
     400: errorMessageSchema,
     401: errorMessageSchema,
     404: errorMessageSchema,
     409: errorMessageSchema,
+    422: errorMessageSchema,
     429: errorMessageSchema,
 };
 
@@ -340,6 +343,19 @@ const chartOfAccountsContract = c.router(
                 200: platformAccountResponseSchema,
                 ...errorResponses,
                 409: platformMergeAccountsBlockedResponseSchema,
+            },
+        },
+        // Queues the mapping of Kick's built-in categories onto a custom
+        // chart of accounts. Asynchronous, idempotent, and refused with 422
+        // for entities on the standard chart.
+        prepareCategorization: {
+            method: "POST",
+            path: "/prepare-categorization",
+            pathParams: platformChartOfAccountsPathParamsSchema,
+            body: c.noBody(),
+            responses: {
+                202: c.noBody(),
+                ...errorResponses,
             },
         },
         delete: {

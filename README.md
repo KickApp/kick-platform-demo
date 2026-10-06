@@ -161,6 +161,10 @@ curl -s -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-
   -H "Content-Type: application/json" \
   -d '{"sourceAccountId": "<uuid>", "targetAccountId": "<uuid>"}'
 
+# Queue the mapping of Kick's categories onto a custom chart of accounts
+# (202 with no body; 422 for an entity on the standard chart)
+curl -s -i -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts/prepare-categorization"
+
 # List an entity's account groups, in the order the chart displays them
 curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/account-groups?limit=100"
 
@@ -324,6 +328,14 @@ An entity created with a custom chart of accounts starts with only the accounts
 Kick automations require — clearing accounts, uncategorized income and
 expenses. Kick seeds them lazily, so they appear the first time this tab reads
 the chart.
+
+Once such a chart is set up, **Prepare categorization** asks Kick to map its
+built-in bookkeeping categories onto the entity's own accounts, so automatic
+transaction categorization posts to them. The mapping is queued (`202`) and
+runs in the background; running it again after adding accounts is safe, since
+categories that are already mapped keep their account. The wire shape does not
+say which entities use a custom chart, so the button is offered for every
+entity and Kick's `422` message is shown for one on the standard chart.
 
 ## Account groups
 
