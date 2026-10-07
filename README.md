@@ -3,16 +3,19 @@
 Demo app for the [Kick](https://kick.co) Platform API: a React frontend and a
 small Express BFF backend covering the **organization**, **workspaces**,
 **entities**, **Plaid connections**, **transactions**, the **chart of
-accounts**, **account groups** and **reports** through the external Platform
-API.
+accounts**, **account groups**, **accounting migrations** (with the **journal
+entries** they migrate) and **reports** through the external Platform API.
 
-Opening a workspace gives six tabs: manage its entities, manage an entity's
+Opening a workspace gives seven tabs: manage its entities, manage an entity's
 chart of accounts (create, rename, move between groups, archive, delete),
 manage the account groups arranging that chart into a hierarchy, manage the
 Plaid connections the partner created (list, connect through Plaid Link,
 delete), read the workspace's transactions across every entity and
-recategorize them, and read an entity's accounting reports. The backend also
-receives Kick's webhooks and logs them — see [Webhooks](#webhooks).
+recategorize them, migrate an entity's historical books and generate
+categorization rules from them (see
+[Accounting migration](#accounting-migration)), and read an entity's
+accounting reports. The backend also receives Kick's webhooks and logs them —
+see [Webhooks](#webhooks).
 
 ## How it works
 
@@ -182,6 +185,32 @@ curl -s -X PATCH "http://localhost:4001/api/platform/v1/entities/<uuid>/account-
 # Delete a group; its accounts and child groups are lifted to its parent
 curl -s -X DELETE "http://localhost:4001/api/platform/v1/entities/<uuid>/account-groups/<uuid>"
 
+# List an entity's manual journal entries on the cash ledger
+curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/journal-entries?ledgerBasis=cash&limit=100"
+
+# Create up to 100 journal entries in one atomic call (each entry's total
+# debits must equal its total credits)
+curl -s -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/journal-entries/bulk" \
+  -H "Content-Type: application/json" \
+  -d '{"journalEntries": [{"date": "2025-06-15", "memo": "Adobe Creative Cloud", "ledgerBasis": "cash", "lines": [{"accountId": "<uuid>", "debitAmount": 49.99, "creditAmount": null, "description": "Adobe Creative Cloud"}, {"accountId": "<uuid>", "debitAmount": null, "creditAmount": 49.99, "description": "Adobe Creative Cloud"}]}]}'
+
+# Start an entity's accounting migration (409 when one already exists or the
+# entity has opening balances; 400 without a bookkeeping start date)
+curl -s -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/accounting-migration"
+
+# Read it — enrichmentRulesSeededAt stays null until rule generation finishes
+curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/accounting-migration"
+
+# Finalize: queue transaction-rule generation from the migrated history
+# (202; 409 when rules were already generated, 422 when the workspace is not eligible)
+curl -s -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/accounting-migration/generate-transaction-rules"
+
+# Or let the demo BFF orchestrate all three steps in one request
+# (this route is the demo's own, not part of the Platform API)
+curl -s -X POST "http://localhost:4001/api/demo/v1/accounting-migration/run" \
+  -H "Content-Type: application/json" \
+  -d '{"entityId": "<uuid>", "journalEntries": [{"date": "2025-06-15", "memo": "Adobe Creative Cloud", "ledgerBasis": "cash", "lines": [{"accountId": "<uuid>", "debitAmount": 49.99, "creditAmount": null, "description": "Adobe Creative Cloud"}, {"accountId": "<uuid>", "debitAmount": null, "creditAmount": 49.99, "description": "Adobe Creative Cloud"}]}]}'
+
 # Reports for an entity: profit-and-loss, balance-sheet, cash-flow, trial-balance
 curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/reports/profit-and-loss?startDate=2026-01-01&endDate=2026-12-31&ledgerBasis=cash&groupBy=month"
 
@@ -236,7 +265,9 @@ Plaid `institutionId` on create; the browser passes the one Link reported, and
 when Link reports none the backend reads it off the Item, failing with a clear
 message if Plaid names no institution at all.
 
-These three routes (`/api/demo/v1/plaid-link/...`) are the demo's own; every
+These three routes (`/api/demo/v1/plaid-link/...`) are the demo's own, like
+the accounting-migration orchestration
+(`/api/demo/v1/accounting-migration/run`) and the webhook receiver; every
 other route the BFF exposes mirrors the Platform API exactly.
 
 Deleting a connection also deletes its accounts and their transactions; a
@@ -370,6 +401,33 @@ There is also an accrual-basis `accrualAccountId`. It is part of the vendored
 schemas because `shared/` mirrors the upstream contract, but this demo keeps
 cash-basis books only and no screen reads or writes it.
 
+## Accounting migration
+
+An accounting migration brings an entity's historical books into Kick before
+its bookkeeping start date. While a migration is open Kick pauses automatic
+transaction enrichment, so the categorization rules generated from the
+migrated history apply before live transactions are categorized. An entity
+keeps at most one migration, and the Platform API has no single migrate call —
+the partner orchestrates three routes:
+
+1. `POST /platform/v1/entities/:entityId/accounting-migration` starts it.
+2. `POST .../journal-entries/bulk` pushes the historical journal entries. Only
+   cash-ledger lines posted to income or expense accounts and dated in the
+   year before the entity's bookkeeping start date feed rule generation.
+3. `POST .../accounting-migration/generate-transaction-rules` finalizes the
+   migration by queuing rule generation. It runs asynchronously: the
+   migration's `enrichmentRulesSeededAt` stays null until it completes, at
+   which point enrichment resumes.
+
+The Migration tab does all of this through the demo BFF's own
+`POST /api/demo/v1/accounting-migration/run`, which chains the three calls in
+one request (reusing an existing migration on a retry). The form collects a
+few historical entries — each row books one balanced two-line journal entry:
+an amount debited to one account and credited to another, with a description
+that rule generation clusters on the way bank descriptions cluster. The tab
+then polls the migration until the rules are seeded and lists the entity's
+manual journal entries underneath.
+
 ## Reports
 
 The Reports tab covers all five Platform API reports — profit and loss, balance
@@ -387,9 +445,9 @@ shared/    Vendored Platform API contract + Zod schemas (ts-rest), used by both 
 backend/   Express BFF: authenticates to Kick, passes requests/errors through,
            logs incoming webhooks
 frontend/  React app: workspaces list/create/change-plan, then per-workspace entities,
-           chart of accounts, account groups, Plaid connections, transactions
-           and reports tabs
+           chart of accounts, account groups, Plaid connections, transactions,
+           accounting migration and reports tabs
 ```
 
 See [AGENTS.md](AGENTS.md) for a guide aimed at coding agents extending this
-project (e.g. adding the classes or journal-entries resources).
+project (e.g. adding the classes or ledgers resources).

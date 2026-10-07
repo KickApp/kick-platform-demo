@@ -1,6 +1,7 @@
 import { Link, Navigate, Route, Routes } from "react-router";
 import { WorkspacesPage } from "./pages/WorkspacesPage";
 import { WorkspaceAccountGroupsPage } from "./pages/WorkspaceAccountGroupsPage";
+import { WorkspaceAccountingMigrationPage } from "./pages/WorkspaceAccountingMigrationPage";
 import { WorkspaceChartOfAccountsPage } from "./pages/WorkspaceChartOfAccountsPage";
 import { WorkspaceEntitiesPage } from "./pages/WorkspaceEntitiesPage";
 import { WorkspaceLayout } from "./pages/WorkspaceLayout";
@@ -18,8 +19,8 @@ export function App() {
                 </Link>
                 <span className="app-subtitle">
                     Workspaces, entities, the chart of accounts, account groups,
-                    Plaid connections, transactions &amp; reports via the
-                    Platform API
+                    Plaid connections, transactions, accounting migrations &amp;
+                    reports via the Platform API
                 </span>
             </header>
             <main className="app-main">
@@ -56,6 +57,10 @@ export function App() {
                         <Route
                             path="transactions"
                             element={<WorkspaceTransactionsPage />}
+                        />
+                        <Route
+                            path="migration"
+                            element={<WorkspaceAccountingMigrationPage />}
                         />
                         <Route
                             path="reports"

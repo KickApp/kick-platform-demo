@@ -4,8 +4,10 @@ import {
     platformContract,
     type CreatePlatformEntityBody,
     type CreatePlatformWorkspaceBody,
+    type LedgerBasis,
     type PlatformAccount,
     type PlatformAccountGroup,
+    type PlatformAccountingMigration,
     type PlatformBulkCreateAccountsBody,
     type PlatformCreateAccountBody,
     type PlatformCreateAccountGroupBody,
@@ -457,6 +459,41 @@ export async function deleteAccountGroup({
     });
     if (result.status === 200) {
         return;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * An entity keeps at most one accounting migration, so "no migration yet" is a
+ * first-class state of the page rather than an error — the upstream 404 folds
+ * into null here.
+ */
+export async function fetchAccountingMigration(
+    entityId: string,
+): Promise<PlatformAccountingMigration | null> {
+    const result = await api.accountingMigration.get({ params: { entityId } });
+    if (result.status === 200) {
+        return result.body.accountingMigration;
+    }
+    if (result.status === 404) {
+        return null;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchJournalEntries(query: {
+    entityId: string;
+    ledgerBasis: LedgerBasis;
+    limit: number;
+    offset: number;
+}) {
+    const { entityId, ...rest } = query;
+    const result = await api.journalEntries.list({
+        params: { entityId },
+        query: rest,
+    });
+    if (result.status === 200) {
+        return result.body;
     }
     throw toApiError(result);
 }

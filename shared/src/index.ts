@@ -1,5 +1,6 @@
 export * from "./contracts/platform.contract";
 export * from "./contracts/plaid-link.contract";
+export * from "./contracts/accounting-migration.contract";
 export * from "./schemas/error.schema";
 export * from "./schemas/pagination.schema";
 export * from "./schemas/workspace.schema";
@@ -10,5 +11,8 @@ export * from "./schemas/plaid-link.schema";
 export * from "./schemas/transaction.schema";
 export * from "./schemas/chart-of-accounts.schema";
 export * from "./schemas/account-group.schema";
+export * from "./schemas/accounting-migration.schema";
+export * from "./schemas/accounting-migration-run.schema";
+export * from "./schemas/journal-entry.schema";
 export * from "./schemas/report.schema";
 export * from "./schemas/webhook-event.schema";
