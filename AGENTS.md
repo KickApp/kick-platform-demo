@@ -50,11 +50,12 @@ that does not typecheck will fail CI.
 ## Architecture
 
 One vendored ts-rest contract mirroring the Platform API, used on both hops,
-plus a small demo-only contract for the Plaid Link flow:
+plus small demo-only contracts for the Plaid Link and accounting-migration
+flows:
 
 - `shared/src/contracts/platform.contract.ts` mirrors the upstream contract
-  paths exactly (`/platform/v1/workspaces`, `/platform/v1/entities`,
-  `/platform/v1/plaid-connections`,
+  paths exactly (`/platform/v1/organization`, `/platform/v1/workspaces`,
+  `/platform/v1/entities`, `/platform/v1/plaid-connections`,
   `/platform/v1/workspaces/:workspaceId/transactions`,
   `/platform/v1/entities/:entityId/chart-of-accounts`,
   `/platform/v1/entities/:entityId/account-groups`,
@@ -70,19 +71,17 @@ plus a small demo-only contract for the Plaid Link flow:
   backend (`frontend/vite.config.ts`, override target with `BACKEND_URL`, e.g.
   `http://host.docker.internal:4001` when running inside Docker).
 - Handlers are pure pass-through. Declared upstream errors
-  (400/401/404/409/429) are forwarded verbatim; anything undeclared becomes a
-  502 via `UpstreamError`. Deleting a Plaid connection, updating a transaction
-  inside a locked bookkeeping period, deleting an account that has journal
-  entries, a blocked account merge and the accounting-migration routes (a
-  second migration, or triggering rule generation twice) answer 409 today, but
-  the contract declares the same error superset on every route.
+  (400/401/404/409/422/429) are forwarded verbatim; anything undeclared becomes
+  a 502 via `UpstreamError`. Deleting a Plaid connection, updating a
+  transaction inside a locked bookkeeping period, deleting an account that has
+  journal entries, a blocked account merge and the accounting-migration routes
+  (a second migration, or triggering rule generation twice) answer 409 today;
+  preparing categorization and generating migration transaction rules for an
+  ineligible workspace answer 422. The contract declares the same error
+  superset on every route.
   The merge 409 is the one error body that is not plain `{ message }` — it
   carries structured blockers, so its handler forwards the 409 itself instead
-  of going through `forwardUpstreamError`, which would flatten it. The
-  accounting migration's `generate-transaction-rules` is the one route that
-  declares 422 (workspace not eligible for rule generation);
-  `forwardUpstreamError` does not know that status, so its handlers forward
-  the 422 themselves. Kick
+  of going through `forwardUpstreamError`, which would flatten it. Kick
   answers a malformed request with a ts-rest validation envelope
   rather than `{ message }`, so `forwardUpstreamError` unwraps that into a
   readable 400 — without it a plain "startDate must be on or before endDate"
@@ -202,8 +201,12 @@ When the Platform API changes, update `shared/` to match.
 Enums are vendored as `as const` arrays fed to `z.enum`, which means a value
 Kick adds upstream fails the BFF's response validation until it is copied here.
 That is the trade for catching drift early; the enums to watch are the account
-types and classes in `chart-of-accounts.schema.ts` and the report section enums
-in `report.schema.ts`.
+types and classes in `chart-of-accounts.schema.ts`, the report section enums
+in `report.schema.ts`, and the workspace plans in `workspace.schema.ts`
+(`WORKSPACE_PLANS` for reads versus the `WORKSPACE_ASSIGNABLE_PLANS` subset a
+write may carry — which of those the organization can actually use comes off
+the wire as `allowedPlans` on `GET /platform/v1/organization`, and that list is
+what every plan picker offers).
 
 Drift cuts the other way too, and more quietly: an extra value here only breaks
 once something writes it. `ACCOUNT_TYPES` carried two types Kick does not have
@@ -215,10 +218,17 @@ the rollup to group them.
 
 ## Vendored resources and deliberate gaps
 
-Nine resources are vendored: workspaces, entities, Plaid connections,
-transactions, the chart of accounts, account groups, accounting migrations,
-journal entries and reports. Some upstream routes are intentionally left out:
+Ten resources are vendored: the organization, workspaces, entities, Plaid
+connections, transactions, the chart of accounts, account groups, accounting
+migrations, journal entries and reports. Some upstream routes are
+intentionally left out:
 
+- Workspaces: `list`, `create`, `get` and `update`. `create` requires a `plan`
+  and `update`'s body is `{ plan }` and nothing else — both mirror upstream,
+  where changing the plan requires the organization to own the workspace
+  billing and takes effect immediately. The upstream `delete` (permanent, with
+  everything in the workspace) is deliberately not vendored: too destructive
+  for a demo surface.
 - Transactions: `list` and `update`. The upstream `get` is not vendored — the
   listing already carries the whole row.
 - Chart of accounts: everything except `get`, for the same reason as
@@ -231,7 +241,11 @@ journal entries and reports. Some upstream routes are intentionally left out:
   shape carries no flag for which accounts refuse which write (or which pairs
   can merge), so the UI offers everything and surfaces Kick's message when it
   declines — for a blocked merge that message is built from the 409's
-  structured `blockers`.
+  structured `blockers`. `prepareCategorization` queues the mapping of Kick's
+  built-in categories onto a custom chart (202, no body, asynchronous and safe
+  to repeat) and answers 422 for an entity on the standard chart. The entity
+  wire shape carries no chart-setup flag either, so the button is offered for
+  every entity and the 422 message explains a refusal.
 - Account groups: everything except `get`, again because the listing carries
   the whole row. A group's type is fixed on creation — `update` renames and/or
   re-parents (null re-roots at the top level) — and `delete` lifts the group's
@@ -247,6 +261,14 @@ journal entries and reports. Some upstream routes are intentionally left out:
   `generateTransactionRules`) is mirrored, but the UI drives the demo's own
   orchestration route instead and uses the mirrored `get` for polling; the
   mirrored writes are kept for parity and curl use, like the Plaid `create`.
+- Reports: all five. The general ledger is the only one that takes
+  `accountIds` / `groupIds` filters, which Kick OR-s into one selection (a
+  group covers its nested subgroups). The Reports tab offers them as two
+  multi-selects, cleared whenever the entity changes because ids from another
+  entity are rejected. ts-rest sends arrays as indexed `key[0]=...` params,
+  which is why the BFF sets a `qs` query parser with a raised `arrayLimit` in
+  `backend/src/index.ts` — Express's default stops building an array past
+  index 20.
 - Plaid: the Platform API's `create` takes a `processor_token` and has no
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is

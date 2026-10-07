@@ -67,12 +67,6 @@ export const accountingMigrationRunRouter = s.router(
                     },
                 };
             }
-            // 422 (workspace not eligible for rule generation) is undeclared
-            // on the mirror's other routes, so forwardUpstreamError would turn
-            // it into a 502; forward it with Kick's message instead.
-            if (finalized.status === 422) {
-                return { status: 422 as const, body: finalized.body };
-            }
             return forwardUpstreamError(finalized);
         },
     },

@@ -16,6 +16,7 @@ import {
     type PlatformUpdateAccountBody,
     type PlatformUpdateAccountGroupBody,
     type ReportGroupBy,
+    type UpdatePlatformWorkspaceBody,
 } from "@kick-demo/shared";
 import { ApiError, toApiError } from "./errors";
 
@@ -24,6 +25,18 @@ import { ApiError, toApiError } from "./errors";
  * under `/api` (proxied to the backend by the Vite dev server).
  */
 const api = initClient(platformContract, { baseUrl: "/api" });
+
+/**
+ * The organization behind the access token; its `allowedPlans` is what every
+ * plan picker offers.
+ */
+export async function fetchOrganization() {
+    const result = await api.organization.get();
+    if (result.status === 200) {
+        return result.body.organization;
+    }
+    throw toApiError(result);
+}
 
 export async function fetchWorkspaces(query: {
     limit: number;
@@ -47,6 +60,24 @@ export async function fetchWorkspace(workspaceId: string) {
 export async function createWorkspace(body: CreatePlatformWorkspaceBody) {
     const result = await api.workspaces.create({ body });
     if (result.status === 201) {
+        return result.body.workspace;
+    }
+    throw toApiError(result);
+}
+
+/** The update body is the plan and nothing else; it takes effect immediately. */
+export async function updateWorkspace({
+    workspaceId,
+    body,
+}: {
+    workspaceId: string;
+    body: UpdatePlatformWorkspaceBody;
+}) {
+    const result = await api.workspaces.update({
+        params: { workspaceId },
+        body,
+    });
+    if (result.status === 200) {
         return result.body.workspace;
     }
     throw toApiError(result);
@@ -285,6 +316,24 @@ export async function deleteAccount({
 }
 
 /**
+ * Queues the mapping of Kick's categories onto the entity's custom chart of
+ * accounts. Answers 422 for an entity on the standard chart.
+ */
+export async function prepareCategorization({
+    entityId,
+}: {
+    entityId: string;
+}) {
+    const result = await api.chartOfAccounts.prepareCategorization({
+        params: { entityId },
+    });
+    if (result.status === 202) {
+        return;
+    }
+    throw toApiError(result);
+}
+
+/**
  * Merges the source account into the target and deletes the source. A merge
  * blocked by the accounts' state answers 409 with structured blockers, which
  * are folded into the error message so the form can show why Kick declined.
@@ -501,14 +550,29 @@ export async function fetchTrialBalanceReport(query: ReportQuery) {
     throw toApiError(result);
 }
 
+/**
+ * An empty selection means "every account", so it is left off the request
+ * rather than sent as an empty filter.
+ */
 export async function fetchGeneralLedgerReport({
     entityId,
     startDate,
     endDate,
-}: Omit<ReportQuery, "groupBy">) {
+    accountIds,
+    groupIds,
+}: Omit<ReportQuery, "groupBy"> & {
+    accountIds: string[];
+    groupIds: string[];
+}) {
     const result = await api.reports.generalLedger({
         params: { entityId },
-        query: { startDate, endDate, ledgerBasis: CASH_BASIS },
+        query: {
+            startDate,
+            endDate,
+            ledgerBasis: CASH_BASIS,
+            ...(accountIds.length > 0 && { accountIds }),
+            ...(groupIds.length > 0 && { groupIds }),
+        },
     });
     if (result.status === 200) {
         return result.body.report;

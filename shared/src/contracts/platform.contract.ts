@@ -71,7 +71,9 @@ import {
     platformWorkspacePathParamsSchema,
     platformWorkspaceResponseSchema,
     platformWorkspacesListResponseSchema,
+    updatePlatformWorkspaceBodySchema,
 } from "../schemas/workspace.schema";
+import { platformOrganizationResponseSchema } from "../schemas/organization.schema";
 
 const c = initContract();
 
@@ -82,18 +84,23 @@ const c = initContract();
  * (base `https://use-dev.kick.co/api`) and the frontend's client against the
  * BFF (base `/api`).
  *
- * Error responses are declared as the superset {400, 401, 404, 409, 429} on
- * every route so the BFF can pass upstream errors through uniformly. Deleting
- * a Plaid connection, updating a transaction inside a locked bookkeeping
- * period, deleting an account that has journal entries and a blocked account
- * merge are the routes that actually answer 409 today; the merge is the one
- * whose 409 body carries structured blockers rather than plain `{ message }`.
+ * Error responses are declared as the superset {400, 401, 404, 409, 422, 429}
+ * on every route so the BFF can pass upstream errors through uniformly.
+ * Deleting a Plaid connection, updating a transaction inside a locked
+ * bookkeeping period, deleting an account that has journal entries and a
+ * blocked account merge, a second accounting migration and triggering its rule
+ * generation twice are the routes that actually answer 409 today; the merge is
+ * the one whose 409 body carries structured blockers rather than plain
+ * `{ message }`. Preparing categorization for an entity that is not on a
+ * custom chart of accounts and generating migration transaction rules for an
+ * ineligible workspace are the routes that answer 422.
  */
 const errorResponses = {
     400: errorMessageSchema,
     401: errorMessageSchema,
     404: errorMessageSchema,
     409: errorMessageSchema,
+    422: errorMessageSchema,
     429: errorMessageSchema,
 };
 
@@ -126,8 +133,39 @@ const workspacesContract = c.router(
                 ...errorResponses,
             },
         },
+        // Changes the plan and nothing else — that is the whole update body
+        // upstream. The organization must own the workspace billing.
+        update: {
+            method: "PATCH",
+            path: "/:workspaceId",
+            pathParams: platformWorkspacePathParamsSchema,
+            body: updatePlatformWorkspaceBodySchema,
+            responses: {
+                200: platformWorkspaceResponseSchema,
+                ...errorResponses,
+            },
+        },
     },
     { pathPrefix: "/platform/v1/workspaces" },
+);
+
+/**
+ * The organization is the token's principal, so the route takes no id: it
+ * returns the organization behind the access token, including the plans it may
+ * assign to a client workspace (which drives the plan pickers).
+ */
+const organizationContract = c.router(
+    {
+        get: {
+            method: "GET",
+            path: "",
+            responses: {
+                200: platformOrganizationResponseSchema,
+                ...errorResponses,
+            },
+        },
+    },
+    { pathPrefix: "/platform/v1/organization" },
 );
 
 const entitiesContract = c.router(
@@ -320,6 +358,19 @@ const chartOfAccountsContract = c.router(
                 409: platformMergeAccountsBlockedResponseSchema,
             },
         },
+        // Queues the mapping of Kick's built-in categories onto a custom
+        // chart of accounts. Asynchronous, idempotent, and refused with 422
+        // for entities on the standard chart.
+        prepareCategorization: {
+            method: "POST",
+            path: "/prepare-categorization",
+            pathParams: platformChartOfAccountsPathParamsSchema,
+            body: c.noBody(),
+            responses: {
+                202: c.noBody(),
+                ...errorResponses,
+            },
+        },
         delete: {
             method: "DELETE",
             path: "/:accountId",
@@ -394,9 +445,8 @@ const accountGroupsContract = c.router(
  * first (it pauses automatic transaction enrichment so half-seeded rules never
  * race live categorization), push the historical journal entries through the
  * journal-entries routes, then trigger transaction-rule generation and poll
- * `enrichmentRulesSeededAt` until it flips. `generateTransactionRules` is the
- * one route on this mirror that answers 422: the workspace can be ineligible
- * for rule generation.
+ * `enrichmentRulesSeededAt` until it flips. `generateTransactionRules` answers
+ * 422 when the workspace is ineligible for rule generation.
  */
 const accountingMigrationContract = c.router(
     {
@@ -427,7 +477,6 @@ const accountingMigrationContract = c.router(
             responses: {
                 202: platformAccountingMigrationResponseSchema,
                 ...errorResponses,
-                422: errorMessageSchema,
             },
         },
     },
@@ -529,6 +578,7 @@ const reportsContract = c.router(
 );
 
 export const platformContract = c.router({
+    organization: organizationContract,
     workspaces: workspacesContract,
     entities: entitiesContract,
     plaidConnections: plaidConnectionsContract,

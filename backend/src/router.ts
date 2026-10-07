@@ -10,6 +10,15 @@ const s = initServer();
  * response. The only thing added server-side is the bearer token.
  */
 export const platformRouter = s.router(platformContract, {
+    organization: {
+        get: async () => {
+            const result = await kickClient.organization.get();
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+    },
     workspaces: {
         list: async ({ query }) => {
             const result = await kickClient.workspaces.list({ query });
@@ -27,6 +36,16 @@ export const platformRouter = s.router(platformContract, {
         },
         get: async ({ params }) => {
             const result = await kickClient.workspaces.get({ params });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        update: async ({ params, body }) => {
+            const result = await kickClient.workspaces.update({
+                params,
+                body,
+            });
             if (result.status === 200) {
                 return { status: 200, body: result.body };
             }
@@ -178,6 +197,17 @@ export const platformRouter = s.router(platformContract, {
             }
             return { status: forwarded.status, body: forwarded.body };
         },
+        // The upstream 202 carries no body, so neither does this one.
+        prepareCategorization: async ({ params }) => {
+            const result =
+                await kickClient.chartOfAccounts.prepareCategorization({
+                    params,
+                });
+            if (result.status === 202) {
+                return { status: 202, body: undefined };
+            }
+            return forwardUpstreamError(result);
+        },
         // The upstream 200 carries no body, so neither does this one.
         delete: async ({ params }) => {
             const result = await kickClient.chartOfAccounts.delete({ params });
@@ -246,9 +276,6 @@ export const platformRouter = s.router(platformContract, {
             }
             return forwardUpstreamError(result);
         },
-        // 422 (workspace not eligible for rule generation) is declared only on
-        // this route, so it is forwarded here; forwardUpstreamError would turn
-        // it into a 502.
         generateTransactionRules: async ({ params }) => {
             const result =
                 await kickClient.accountingMigration.generateTransactionRules({
@@ -256,9 +283,6 @@ export const platformRouter = s.router(platformContract, {
                 });
             if (result.status === 202) {
                 return { status: 202, body: result.body };
-            }
-            if (result.status === 422) {
-                return { status: 422, body: result.body };
             }
             return forwardUpstreamError(result);
         },

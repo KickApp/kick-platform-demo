@@ -1,10 +1,10 @@
 # kick-platform-demo
 
 Demo app for the [Kick](https://kick.co) Platform API: a React frontend and a
-small Express BFF backend covering **workspaces**, **entities**, **Plaid
-connections**, **transactions**, the **chart of accounts**, **account groups**,
-**accounting migrations** (with the **journal entries** they migrate) and
-**reports** through the external Platform API.
+small Express BFF backend covering the **organization**, **workspaces**,
+**entities**, **Plaid connections**, **transactions**, the **chart of
+accounts**, **account groups**, **accounting migrations** (with the **journal
+entries** they migrate) and **reports** through the external Platform API.
 
 Opening a workspace gives seven tabs: manage its entities, manage an entity's
 chart of accounts (create, rename, move between groups, archive, delete),
@@ -83,13 +83,22 @@ npm run format        # prettier
 ## Curl examples (against the BFF)
 
 ```bash
+# Get the organization behind the token, including the plans it may assign
+curl -s "http://localhost:4001/api/platform/v1/organization"
+
 # List workspaces
 curl -s "http://localhost:4001/api/platform/v1/workspaces?limit=10"
 
-# Create a workspace
+# Create a workspace. plan is required and must be one of the organization's
+# allowedPlans (see the organization endpoint above)
 curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces" \
   -H "Content-Type: application/json" \
-  -d '{"name": "Acme Inc."}'
+  -d '{"name": "Acme Inc.", "plan": "FREE"}'
+
+# Change a workspace's plan; it takes effect immediately
+curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"plan": "PLUS"}'
 
 # List entities of a workspace
 curl -s "http://localhost:4001/api/platform/v1/entities?workspaceId=<uuid>"
@@ -155,6 +164,10 @@ curl -s -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-
   -H "Content-Type: application/json" \
   -d '{"sourceAccountId": "<uuid>", "targetAccountId": "<uuid>"}'
 
+# Queue the mapping of Kick's categories onto a custom chart of accounts
+# (202 with no body; 422 for an entity on the standard chart)
+curl -s -i -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts/prepare-categorization"
+
 # List an entity's account groups, in the order the chart displays them
 curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/account-groups?limit=100"
 
@@ -203,6 +216,10 @@ curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/reports/profit-an
 
 # The general ledger lists individual postings, so it takes no groupBy
 curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/reports/general-ledger?startDate=2026-01-01&endDate=2026-12-31&ledgerBasis=cash"
+
+# Narrow it to accounts and/or account groups (repeat a param for several);
+# the two lists are OR-ed, and a group includes its nested subgroups
+curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/reports/general-ledger?startDate=2026-01-01&endDate=2026-12-31&accountIds=<uuid>&accountIds=<uuid>&groupIds=<uuid>"
 ```
 
 The same paths work directly against the Kick API — replace the host with
@@ -343,6 +360,14 @@ Kick automations require — clearing accounts, uncategorized income and
 expenses. Kick seeds them lazily, so they appear the first time this tab reads
 the chart.
 
+Once such a chart is set up, **Prepare categorization** asks Kick to map its
+built-in bookkeeping categories onto the entity's own accounts, so automatic
+transaction categorization posts to them. The mapping is queued (`202`) and
+runs in the background; running it again after adding accounts is safe, since
+categories that are already mapped keep their account. The wire shape does not
+say which entities use a custom chart, so the button is offered for every
+entity and Kick's `422` message is shown for one on the standard chart.
+
 ## Account groups
 
 Account groups arrange an entity's chart of accounts into a hierarchy for
@@ -419,7 +444,7 @@ requested on the cash basis.
 shared/    Vendored Platform API contract + Zod schemas (ts-rest), used by both sides
 backend/   Express BFF: authenticates to Kick, passes requests/errors through,
            logs incoming webhooks
-frontend/  React app: workspaces list/create, then per-workspace entities,
+frontend/  React app: workspaces list/create/change-plan, then per-workspace entities,
            chart of accounts, account groups, Plaid connections, transactions,
            accounting migration and reports tabs
 ```
