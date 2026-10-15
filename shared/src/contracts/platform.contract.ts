@@ -35,6 +35,17 @@ import {
     platformUpdateAccountBodySchema,
 } from "../schemas/chart-of-accounts.schema";
 import {
+    platformAccountOpeningBalanceResponseSchema,
+    platformBulkSetOpeningBalancesBodySchema,
+    platformBulkSetOpeningBalancesResponseSchema,
+    platformOpeningBalanceAdjustmentSetBodySchema,
+    platformOpeningBalancePathParamsSchema,
+    platformOpeningBalanceSetBodySchema,
+    platformOpeningBalancesListQuerySchema,
+    platformOpeningBalancesListResponseSchema,
+    platformOpeningBalancesPathParamsSchema,
+} from "../schemas/opening-balance.schema";
+import {
     createPlatformEntityBodySchema,
     platformEntitiesListQuerySchema,
     platformEntitiesListResponseSchema,
@@ -89,7 +100,9 @@ const c = initContract();
  * Deleting a Plaid connection, updating a transaction inside a locked
  * bookkeeping period, deleting an account that has journal entries and a
  * blocked account merge, a second accounting migration and triggering its rule
- * generation twice are the routes that actually answer 409 today; the merge is
+ * generation twice, deleting an opening balance of a reconciled bank account
+ * and two concurrent opening balance writes to the same account are the routes
+ * that actually answer 409 today; the merge is
  * the one whose 409 body carries structured blockers rather than plain
  * `{ message }`. Preparing categorization for an entity that is not on a
  * custom chart of accounts and generating migration transaction rules for an
@@ -440,6 +453,92 @@ const accountGroupsContract = c.router(
 );
 
 /**
+ * Opening balances belong to the accounts of one entity's chart, so the
+ * routes nest under the entity uuid and are keyed by the account uuid. An
+ * account has two independent parts — the main opening balance (lines booked
+ * before the bookkeeping start date) and the adjustment (one amount booked on
+ * it) — and each write route replaces one part while leaving the other alone.
+ * `delete` removes both parts; `deleteAdjustment` keeps the main one. The
+ * listing only carries accounts with at least one part, and `get` answers 404
+ * for an account with neither.
+ */
+const openingBalancesContract = c.router(
+    {
+        list: {
+            method: "GET",
+            path: "",
+            pathParams: platformOpeningBalancesPathParamsSchema,
+            query: platformOpeningBalancesListQuerySchema,
+            responses: {
+                200: platformOpeningBalancesListResponseSchema,
+                ...errorResponses,
+            },
+        },
+        get: {
+            method: "GET",
+            path: "/:accountId",
+            pathParams: platformOpeningBalancePathParamsSchema,
+            responses: {
+                200: platformAccountOpeningBalanceResponseSchema,
+                ...errorResponses,
+            },
+        },
+        set: {
+            method: "PUT",
+            path: "/:accountId",
+            pathParams: platformOpeningBalancePathParamsSchema,
+            body: platformOpeningBalanceSetBodySchema,
+            responses: {
+                200: platformAccountOpeningBalanceResponseSchema,
+                ...errorResponses,
+            },
+        },
+        setAdjustment: {
+            method: "PUT",
+            path: "/:accountId/adjustment",
+            pathParams: platformOpeningBalancePathParamsSchema,
+            body: platformOpeningBalanceAdjustmentSetBodySchema,
+            responses: {
+                200: platformAccountOpeningBalanceResponseSchema,
+                ...errorResponses,
+            },
+        },
+        deleteAdjustment: {
+            method: "DELETE",
+            path: "/:accountId/adjustment",
+            pathParams: platformOpeningBalancePathParamsSchema,
+            body: c.noBody(),
+            responses: {
+                200: c.noBody(),
+                ...errorResponses,
+            },
+        },
+        delete: {
+            method: "DELETE",
+            path: "/:accountId",
+            pathParams: platformOpeningBalancePathParamsSchema,
+            body: c.noBody(),
+            responses: {
+                200: c.noBody(),
+                ...errorResponses,
+            },
+        },
+        // Atomic upstream: if any item fails validation, nothing is saved.
+        bulkSet: {
+            method: "POST",
+            path: "/bulk",
+            pathParams: platformOpeningBalancesPathParamsSchema,
+            body: platformBulkSetOpeningBalancesBodySchema,
+            responses: {
+                200: platformBulkSetOpeningBalancesResponseSchema,
+                ...errorResponses,
+            },
+        },
+    },
+    { pathPrefix: "/platform/v1/entities/:entityId/opening-balances" },
+);
+
+/**
  * An entity keeps at most one accounting migration, so the resource is
  * singular under the entity uuid. The intended flow: create the migration
  * first (it pauses automatic transaction enrichment so half-seeded rules never
@@ -585,6 +684,7 @@ export const platformContract = c.router({
     transactions: transactionsContract,
     chartOfAccounts: chartOfAccountsContract,
     accountGroups: accountGroupsContract,
+    openingBalances: openingBalancesContract,
     accountingMigration: accountingMigrationContract,
     journalEntries: journalEntriesContract,
     reports: reportsContract,

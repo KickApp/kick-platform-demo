@@ -11,6 +11,7 @@ export * from "./schemas/plaid-link.schema";
 export * from "./schemas/transaction.schema";
 export * from "./schemas/chart-of-accounts.schema";
 export * from "./schemas/account-group.schema";
+export * from "./schemas/opening-balance.schema";
 export * from "./schemas/accounting-migration.schema";
 export * from "./schemas/accounting-migration-run.schema";
 export * from "./schemas/journal-entry.schema";
