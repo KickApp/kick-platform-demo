@@ -355,6 +355,11 @@ tbody tr:hover {
     font-size: 13px;
 }
 
+.row-actions-wrap {
+    flex-wrap: wrap;
+    max-width: 280px;
+}
+
 .connection-card {
     margin-bottom: 16px;
     overflow-x: auto;

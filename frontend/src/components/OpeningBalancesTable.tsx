@@ -3,7 +3,10 @@ import type {
     PlatformAccountOpeningBalance,
 } from "@kick-demo/shared";
 import { groupAccountsByClass } from "../lib/use-entity-accounts";
-import { OpeningBalanceRow } from "./OpeningBalanceRow";
+import {
+    OPENING_BALANCE_COLUMN_COUNT,
+    OpeningBalanceRow,
+} from "./OpeningBalanceRow";
 
 /**
  * The opening balance listing only carries accounts that have something, so
@@ -37,7 +40,6 @@ export function OpeningBalancesTable({
             <table>
                 <thead>
                     <tr>
-                        <th>Code</th>
                         <th>Account</th>
                         <th className="amount">Opening balance</th>
                         <th className="amount">Adjustment</th>
@@ -47,7 +49,9 @@ export function OpeningBalancesTable({
                 {groupAccountsByClass(shownAccounts).map((group) => (
                     <tbody key={group.accountClass}>
                         <tr className="report-section-row">
-                            <td colSpan={5}>{group.accountClass}</td>
+                            <td colSpan={OPENING_BALANCE_COLUMN_COUNT}>
+                                {group.accountClass}
+                            </td>
                         </tr>
                         {group.accounts.map((account) => (
                             <OpeningBalanceRow

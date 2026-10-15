@@ -16,7 +16,7 @@ import { OpeningBalanceForm } from "./OpeningBalanceForm";
 
 type Editing = "none" | "opening-balance" | "adjustment";
 
-const COLUMN_COUNT = 5;
+export const OPENING_BALANCE_COLUMN_COUNT = 4;
 
 function ClearingAccountLabel({
     clearingAccountId,
@@ -81,7 +81,6 @@ export function OpeningBalanceRow({
     return (
         <>
             <tr>
-                <td className="mono">{account.code ?? "—"}</td>
                 <td>
                     {account.name}
                     {account.isDisabled && (
@@ -90,7 +89,10 @@ export function OpeningBalanceRow({
                             <span className="badge">Archived</span>
                         </>
                     )}
-                    <span className="cell-meta">{account.type}</span>
+                    <span className="cell-meta">
+                        {account.code !== null ? `${account.code} · ` : ""}
+                        {account.type}
+                    </span>
                 </td>
                 <td className="amount">
                     {main !== null ? (
@@ -133,7 +135,7 @@ export function OpeningBalanceRow({
                     )}
                 </td>
                 <td>
-                    <div className="row-actions">
+                    <div className="row-actions row-actions-wrap">
                         {deletion.isPending ? (
                             <span className="cell-pending">Deleting…</span>
                         ) : (
@@ -206,7 +208,7 @@ export function OpeningBalanceRow({
             </tr>
             {editing !== "none" && (
                 <tr className="row-editor">
-                    <td colSpan={COLUMN_COUNT}>
+                    <td colSpan={OPENING_BALANCE_COLUMN_COUNT}>
                         {editing === "opening-balance" ? (
                             <OpeningBalanceForm
                                 entityId={entityId}
