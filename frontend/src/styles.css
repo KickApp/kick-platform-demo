@@ -303,6 +303,15 @@ tbody tr:hover {
     white-space: normal;
 }
 
+.cell-hint {
+    display: block;
+    max-width: 260px;
+    margin-top: 4px;
+    color: var(--text-muted);
+    font-size: 12px;
+    white-space: normal;
+}
+
 .cell-editor select,
 .cell-editor input {
     min-width: 240px;
