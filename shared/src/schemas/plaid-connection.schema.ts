@@ -3,40 +3,8 @@ import {
     platformPaginationQuerySchema,
     platformPaginationSchema,
 } from "./pagination.schema";
-
-/**
- * Financial account types the Platform API reports.
- */
-export const FINANCIAL_ACCOUNT_TYPES = [
-    "checking",
-    "savings",
-    "credit_card",
-    "loan",
-    "line_of_credit",
-    "investment",
-    "payment_processor",
-    "cash",
-    "other",
-] as const;
-
-export const financialAccountTypeSchema = z.enum(FINANCIAL_ACCOUNT_TYPES);
-
-export type FinancialAccountType = z.infer<typeof financialAccountTypeSchema>;
-
-export const FINANCIAL_ACCOUNT_TYPE_LABELS: Record<
-    FinancialAccountType,
-    string
-> = {
-    checking: "Checking",
-    savings: "Savings",
-    credit_card: "Credit card",
-    loan: "Loan",
-    line_of_credit: "Line of credit",
-    investment: "Investment",
-    payment_processor: "Payment processor",
-    cash: "Cash",
-    other: "Other",
-};
+import { financialAccountTypeSchema } from "./financial-account.schema";
+import { uuidArrayQueryParamSchema } from "./query.schema";
 
 /**
  * Processor tokens look like `processor-<environment>-<identifier>`. Kick
@@ -100,24 +68,10 @@ export const platformPlaidConnectionPathParamsSchema = z.object({
     connectionId: z.string().uuid(),
 });
 
-/**
- * A single value or a repeated `entityIds` query param both normalize to an
- * array, matching how the upstream API parses the filter.
- */
-export const platformPlaidConnectionListEntityIdsSchema = z.preprocess(
-    (value) => {
-        if (value === undefined || value === null || value === "") {
-            return undefined;
-        }
-        return Array.isArray(value) ? value : [value];
-    },
-    z.array(z.string().uuid()).min(1).optional(),
-);
-
 export const platformPlaidConnectionListQuerySchema =
     platformPaginationQuerySchema.extend({
         workspaceId: z.string().uuid(),
-        entityIds: platformPlaidConnectionListEntityIdsSchema,
+        entityIds: uuidArrayQueryParamSchema,
     });
 
 export type PlatformPlaidConnectionListQuery = z.infer<
