@@ -170,6 +170,7 @@ export function FinancialAccountRow({
                 {isEditing ? (
                     <input
                         type="text"
+                        className="cell-control"
                         value={draft.name}
                         maxLength={100}
                         autoFocus
@@ -179,8 +180,22 @@ export function FinancialAccountRow({
                         }
                     />
                 ) : (
-                    displayName
+                    <>
+                        {displayName}
+                        {account.disabled && (
+                            <>
+                                {" "}
+                                <span
+                                    className="badge"
+                                    title="Syncing new transactions is turned off"
+                                >
+                                    Sync off
+                                </span>
+                            </>
+                        )}
+                    </>
                 )}
+                <div className="page-meta mono">{account.id}</div>
             </td>
             <td>
                 {account.institutionName ?? "—"}
@@ -196,6 +211,7 @@ export function FinancialAccountRow({
             <td>
                 {entities.length > 1 ? (
                     <select
+                        className="cell-control"
                         value={account.entityId}
                         disabled={mutation.isPending || isEditing}
                         aria-label="Entity"
@@ -233,16 +249,10 @@ export function FinancialAccountRow({
                 {account.balance !== null ? formatAmount(account.balance) : "—"}
             </td>
             <td>
-                {account.disabled ? (
-                    <span className="badge">Sync off</span>
-                ) : (
-                    "On"
-                )}
-            </td>
-            <td>
                 {isEditing ? (
                     <input
                         type="date"
+                        className="cell-control"
                         value={draft.bookkeepingStartDate}
                         max={draft.bookkeepingEndDate || undefined}
                         aria-label="Bookkeeping start date"
@@ -263,6 +273,7 @@ export function FinancialAccountRow({
                 {isEditing ? (
                     <input
                         type="date"
+                        className="cell-control"
                         value={draft.bookkeepingEndDate}
                         min={draft.bookkeepingStartDate || undefined}
                         aria-label="Bookkeeping end date"
@@ -279,7 +290,6 @@ export function FinancialAccountRow({
                     ))
                 )}
             </td>
-            <td className="mono">{account.id}</td>
             <td>
                 <div className="row-actions">
                     {mutation.isPending ? (

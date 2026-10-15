@@ -324,8 +324,9 @@ Kick's message is shown when it declines:
   **Delete anyway**, which retries with `forceDeletion=true` and deletes those
   journal entries as well.
 
-The tab's **Sync** column reads the account's `disabled` flag, which turns off
-syncing new transactions; the Platform API has no route to change it.
+A **Sync off** badge next to an account's name reflects its `disabled` flag,
+which turns off syncing new transactions; the Platform API has no route to
+change it.
 
 ## Webhooks
 

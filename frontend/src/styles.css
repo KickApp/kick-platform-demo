@@ -312,6 +312,11 @@ tbody tr:hover {
     white-space: normal;
 }
 
+.cell-control {
+    width: auto;
+    min-width: 150px;
+}
+
 .cell-editor select,
 .cell-editor input {
     min-width: 240px;
