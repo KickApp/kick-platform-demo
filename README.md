@@ -2,15 +2,19 @@
 
 Demo app for the [Kick](https://kick.co) Platform API: a React frontend and a
 small Express BFF backend covering the **organization**, **workspaces**,
-**entities**, **Plaid connections**, **transactions**, the **chart of
-accounts**, **account groups**, **accounting migrations** (with the **journal
-entries** they migrate) and **reports** through the external Platform API.
+**entities**, **Plaid connections**, **financial accounts**, **transactions**,
+the **chart of accounts**, **account groups**, **accounting migrations** (with
+the **journal entries** they migrate) and **reports** through the external
+Platform API.
 
-Opening a workspace gives seven tabs: manage its entities, manage an entity's
+Opening a workspace gives eight tabs: manage its entities, manage an entity's
 chart of accounts (create, rename, move between groups, archive, delete),
 manage the account groups arranging that chart into a hierarchy, manage the
 Plaid connections the partner created (list, connect through Plaid Link,
-delete), read the workspace's transactions across every entity and
+delete), manage the workspace's financial accounts of every source (rename,
+change bookkeeping dates, move to another entity, delete — see
+[Financial accounts](#financial-accounts)), read the workspace's transactions
+across every entity and
 recategorize them, migrate an entity's historical books and generate
 categorization rules from them (see
 [Accounting migration](#accounting-migration)), and read an entity's
@@ -123,6 +127,27 @@ curl -s -X POST "http://localhost:4001/api/platform/v1/plaid-connections" \
 
 # Delete a Plaid connection (409 when its account carries manual journal entries)
 curl -s -X DELETE "http://localhost:4001/api/platform/v1/plaid-connections/<uuid>"
+
+# List the financial accounts of a workspace, of every source (optionally
+# narrowed to entities)
+curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/financial-accounts?entityIds=<uuid>"
+
+# Rename a financial account and/or change its bookkeeping dates (null clears a
+# date; changing one regenerates the account's journal entries and answers 409
+# when reconciliations or an opening balance block it)
+curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/financial-accounts/<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Operating Checking", "bookkeepingStartDate": "2026-01-01", "bookkeepingEndDate": null}'
+
+# Move a financial account, with its transactions, documents and accounting
+# data, to another entity of the same workspace
+curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces/<uuid>/financial-accounts/<uuid>/move" \
+  -H "Content-Type: application/json" \
+  -d '{"entityId": "<uuid>"}'
+
+# Delete a financial account and its transactions (409 when manual journal
+# entries post to it; forceDeletion=true deletes those too)
+curl -s -X DELETE "http://localhost:4001/api/platform/v1/workspaces/<uuid>/financial-accounts/<uuid>?forceDeletion=true"
 
 # List transactions of a workspace within an inclusive date range
 curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions?startDate=2026-01-01&endDate=2026-01-31"
@@ -273,6 +298,34 @@ other route the BFF exposes mirrors the Platform API exactly.
 Deleting a connection also deletes its accounts and their transactions; a
 connection whose account carries manual journal entries answers `409`, which
 the UI surfaces verbatim.
+
+## Financial accounts
+
+The Financial accounts tab lists every financial account assigned to the
+workspace's entities, whatever its source — Plaid and other integrations, file
+imports and manual accounts alike — optionally narrowed to one entity. Each
+row accepts the three writes the Platform API allows; nothing on the wire says
+which of them Kick will refuse for a given account, so all are offered and
+Kick's message is shown when it declines:
+
+- **Edit** renames the account and changes its bookkeeping dates. Only the
+  fields that changed are sent. Clearing the start date makes the account
+  follow its entity's bookkeeping start date; clearing the end date leaves it
+  open-ended. Changing either date regenerates the account's journal entries:
+  a date out of range answers `400`, and one blocked by the account's
+  reconciliations or opening balance answers `409`.
+- **Move** — the Entity column is a picker of the workspace's entities.
+  Choosing another one moves the account there with its transactions,
+  documents and accounting data, keeping its bookkeeping dates. An entity of
+  another workspace is rejected with `400`.
+- **Delete** is permanent and takes the account's transactions with it; a
+  Plaid connection left without accounts is deleted too. An account that
+  manual journal entries post to answers `409`, and the row then offers
+  **Delete anyway**, which retries with `forceDeletion=true` and deletes those
+  journal entries as well.
+
+The tab's **Sync** column reads the account's `disabled` flag, which turns off
+syncing new transactions; the Platform API has no route to change it.
 
 ## Webhooks
 
@@ -445,8 +498,8 @@ shared/    Vendored Platform API contract + Zod schemas (ts-rest), used by both 
 backend/   Express BFF: authenticates to Kick, passes requests/errors through,
            logs incoming webhooks
 frontend/  React app: workspaces list/create/change-plan, then per-workspace entities,
-           chart of accounts, account groups, Plaid connections, transactions,
-           accounting migration and reports tabs
+           chart of accounts, account groups, Plaid connections, financial
+           accounts, transactions, accounting migration and reports tabs
 ```
 
 See [AGENTS.md](AGENTS.md) for a guide aimed at coding agents extending this
