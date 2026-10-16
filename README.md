@@ -3,21 +3,22 @@
 Demo app for the [Kick](https://kick.co) Platform API: a React frontend and a
 small Express BFF backend covering the **organization**, **workspaces**,
 **entities**, **Plaid connections**, **financial accounts**, **transactions**,
-the **chart of accounts**, **account groups**, entity **locks**, **accounting
-migrations** (with the **journal entries** they migrate) and **reports** through
-the external Platform API.
+the **chart of accounts**, **account groups**, **opening balances**, entity
+**locks**, **accounting migrations** (with the **journal entries** they migrate)
+and **reports** through the external Platform API.
 
-Opening a workspace gives nine tabs: manage its entities, manage an entity's
+Opening a workspace gives ten tabs: manage its entities, manage an entity's
 chart of accounts (create, rename, move between groups, archive, delete),
-manage the account groups arranging that chart into a hierarchy, manage the
-Plaid connections the partner created (list, connect through Plaid Link,
-delete), manage the workspace's financial accounts of every source (rename,
-change bookkeeping dates, move to another entity, delete — see
+manage the account groups arranging that chart into a hierarchy, set the
+accounts' opening balances and adjustments (see
+[Opening balances](#opening-balances)), manage the Plaid connections the
+partner created (list, connect through Plaid Link, delete), manage the
+workspace's financial accounts of every source (rename, change bookkeeping
+dates, move to another entity, delete — see
 [Financial accounts](#financial-accounts)), read the workspace's transactions
 across every entity and recategorize them, lock or unlock each entity's books
 through a date (see [Locks](#locks)), migrate an entity's historical books and
-generate
-categorization rules from them (see
+generate categorization rules from them (see
 [Accounting migration](#accounting-migration)), and read an entity's
 accounting reports. The backend also receives Kick's webhooks and logs them —
 see [Webhooks](#webhooks).
@@ -224,6 +225,37 @@ curl -s -X PATCH "http://localhost:4001/api/platform/v1/entities/<uuid>/account-
 
 # Delete a group; its accounts and child groups are lifted to its parent
 curl -s -X DELETE "http://localhost:4001/api/platform/v1/entities/<uuid>/account-groups/<uuid>"
+
+# List the accounts of an entity that have an opening balance, an adjustment or both
+curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/opening-balances?limit=100"
+
+# Read one account's opening balance state (404 when it has neither part)
+curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/opening-balances/<account-uuid>"
+
+# Create or replace an account's main opening balance. Amounts use the
+# account's natural sign; date (before the bookkeeping start date, default the
+# day before it), clearingAccountId (default retained earnings) and description
+# are optional. The adjustment is left untouched
+curl -s -X PUT "http://localhost:4001/api/platform/v1/entities/<uuid>/opening-balances/<account-uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"lines": [{"balance": 1200.50, "description": "Checking"}, {"balance": 300, "description": "Savings"}], "description": "Carried over"}'
+
+# Create or replace its adjustment: one amount booked on the bookkeeping start
+# date. The main opening balance is left untouched
+curl -s -X PUT "http://localhost:4001/api/platform/v1/entities/<uuid>/opening-balances/<account-uuid>/adjustment" \
+  -H "Content-Type: application/json" \
+  -d '{"balance": -25.50, "description": "Reconciliation true-up"}'
+
+# Set up to 100 accounts in one atomic call; each item carries an
+# openingBalance, an adjustment or both, and a part left out is untouched
+curl -s -X POST "http://localhost:4001/api/platform/v1/entities/<uuid>/opening-balances/bulk" \
+  -H "Content-Type: application/json" \
+  -d '{"openingBalances": [{"accountId": "<uuid>", "openingBalance": {"lines": [{"balance": 5000}]}}, {"accountId": "<uuid>", "adjustment": {"balance": 750}}]}'
+
+# Delete the adjustment only, or both parts (409 once the linked bank account
+# is reconciled)
+curl -s -X DELETE "http://localhost:4001/api/platform/v1/entities/<uuid>/opening-balances/<account-uuid>/adjustment"
+curl -s -X DELETE "http://localhost:4001/api/platform/v1/entities/<uuid>/opening-balances/<account-uuid>"
 
 # List an entity's manual journal entries on the cash ledger
 curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/journal-entries?ledgerBasis=cash&limit=100"
@@ -465,6 +497,36 @@ them. Accounts are placed into groups from the chart of accounts tab, not
 here: membership is a field on the account (`groupId`), written through the
 account update call.
 
+## Opening balances
+
+Every account of an entity's chart can carry an opening balance in two
+independent parts, each booked against a clearing account (retained earnings,
+or owner's capital, unless another is chosen):
+
+- **The main opening balance** — one or more lines dated before the
+  bookkeeping start date, by default the day before it. Several lines keep the
+  breakdown of a balance made of several pieces.
+- **The adjustment** — a single amount booked on the bookkeeping start date,
+  for truing up a balance that was off when the books moved to Kick. An account
+  can have an adjustment without a main opening balance.
+
+Amounts use the account's natural sign: a positive amount increases the account
+(a debit for assets and expenses, a credit for liabilities, equity and income).
+When the account is linked to a bank account, that bank account's own start
+date takes the place of the entity's in both date rules.
+
+The Opening balances tab picks an entity and joins its opening balance listing
+onto its chart, so each row shows both parts. A toggle also shows the accounts
+without one, so they can get one. Each part is set and replaced on its own
+without touching the other. Deleting removes the adjustment alone or both
+parts, along with their journal entries, and answers `409` once the linked bank
+account is reconciled. **Set in bulk** sends up to 100 accounts in one atomic
+call. Each row books a single-line main balance and/or an adjustment, and a
+part left blank keeps whatever the account already has.
+
+An entity with opening balances cannot start an accounting migration, because
+Kick answers `409`.
+
 ## Transactions and the chart of accounts
 
 A transaction's categorization is a field on the transaction itself:
@@ -540,8 +602,9 @@ shared/    Vendored Platform API contract + Zod schemas (ts-rest), used by both 
 backend/   Express BFF: authenticates to Kick, passes requests/errors through,
            logs incoming webhooks
 frontend/  React app: workspaces list/create/change-plan, then per-workspace entities,
-           chart of accounts, account groups, Plaid connections, financial
-           accounts, transactions, locks, accounting migration and reports tabs
+           chart of accounts, account groups, opening balances, Plaid connections,
+           financial accounts, transactions, locks, accounting migration and
+           reports tabs
 ```
 
 See [AGENTS.md](AGENTS.md) for a guide aimed at coding agents extending this

@@ -60,6 +60,7 @@ flows:
   `/platform/v1/workspaces/:workspaceId/financial-accounts`,
   `/platform/v1/entities/:entityId/chart-of-accounts`,
   `/platform/v1/entities/:entityId/account-groups`,
+  `/platform/v1/entities/:entityId/opening-balances`,
   `/platform/v1/entities/:entityId/accounting-migration`,
   `/platform/v1/entities/:entityId/journal-entries`,
   `/platform/v1/entities/:entityId/reports/*`, `/platform/v1/locks`).
@@ -78,8 +79,9 @@ flows:
   that has journal entries, a blocked account merge, the accounting-migration
   routes (a second migration, or triggering rule generation twice), a
   financial-account date change blocked by reconciliations or an opening
-  balance, and deleting a financial account that manual journal entries post
-  to answer 409 today;
+  balance, deleting a financial account that manual journal entries post to,
+  deleting an opening balance once its bank account is reconciled and two
+  concurrent opening balance writes to the same account answer 409 today;
   preparing categorization and generating migration transaction rules for an
   ineligible workspace answer 422. The contract declares the same error
   superset on every route.
@@ -226,10 +228,10 @@ codes whenever a provider gains a new way to break.
 
 ## Vendored resources and deliberate gaps
 
-Twelve resources are vendored: the organization, workspaces, entities, Plaid
+Thirteen resources are vendored: the organization, workspaces, entities, Plaid
 connections, financial accounts, transactions, the chart of accounts, account
-groups, locks, accounting migrations, journal entries and reports. Some
-upstream routes are intentionally left out:
+groups, opening balances, locks, accounting migrations, journal entries and
+reports. Some upstream routes are intentionally left out:
 
 - Workspaces: `list`, `create`, `get` and `update`. `create` requires a `plan`
   and `update`'s body is `{ plan }` and nothing else — both mirror upstream,
@@ -277,6 +279,22 @@ upstream routes are intentionally left out:
   accounts and child groups to its parent, so it never answers 409. Group
   membership is not written here: it is the `groupId` field on the account,
   written through the chart-of-accounts `create`/`update` routes.
+- Opening balances: the full upstream surface (`list`, `get`, `set`,
+  `setAdjustment`, `deleteAdjustment`, `delete`, `bulkSet`). They are keyed by
+  account uuid, and each account has two independent parts. Each `set*` route
+  replaces one part and leaves the other alone. `delete` removes both parts,
+  while `deleteAdjustment` keeps the main one. The listing only carries
+  accounts that have at least one part, so the Opening balances tab joins it
+  onto the chart instead of calling `get`, which is kept for parity and curl
+  use. The upstream bulk refines (an item with neither part, an account listed
+  twice) are left off the vendored body like the other top-level refines. The
+  bulk form makes both unrepresentable instead: a row needs an amount, and an
+  account picked in one row is not offered in another. The adjustment form
+  sends no `date`, because the only value Kick accepts is the bookkeeping start
+  date, which is also the default. A linked bank account's own start date can
+  override the entity's, and the wire shape doesn't show that, so the main
+  balance's date input only clamps to the entity's and Kick's 400 explains the
+  rest.
 - Journal entries: only `list` and the atomic `bulkCreate`. The single
   `get`/`create`/`update`/`delete` are left out — the demo only pushes
   historical entries in bulk during an accounting migration and reads them

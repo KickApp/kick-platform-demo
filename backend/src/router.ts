@@ -300,6 +300,73 @@ export const platformRouter = s.router(platformContract, {
             return forwardUpstreamError(result);
         },
     },
+    openingBalances: {
+        list: async ({ params, query }) => {
+            const result = await kickClient.openingBalances.list({
+                params,
+                query,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        get: async ({ params }) => {
+            const result = await kickClient.openingBalances.get({ params });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        set: async ({ params, body }) => {
+            const result = await kickClient.openingBalances.set({
+                params,
+                body,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        setAdjustment: async ({ params, body }) => {
+            const result = await kickClient.openingBalances.setAdjustment({
+                params,
+                body,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        // The upstream 200 carries no body, so neither does this one.
+        deleteAdjustment: async ({ params }) => {
+            const result = await kickClient.openingBalances.deleteAdjustment({
+                params,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: undefined };
+            }
+            return forwardUpstreamError(result);
+        },
+        // The upstream 200 carries no body, so neither does this one.
+        delete: async ({ params }) => {
+            const result = await kickClient.openingBalances.delete({ params });
+            if (result.status === 200) {
+                return { status: 200, body: undefined };
+            }
+            return forwardUpstreamError(result);
+        },
+        bulkSet: async ({ params, body }) => {
+            const result = await kickClient.openingBalances.bulkSet({
+                params,
+                body,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+    },
     accountingMigration: {
         create: async ({ params }) => {
             const result = await kickClient.accountingMigration.create({

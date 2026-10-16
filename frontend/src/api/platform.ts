@@ -8,12 +8,16 @@ import {
     type PlatformAccount,
     type PlatformAccountGroup,
     type PlatformAccountingMigration,
+    type PlatformAccountOpeningBalance,
     type PlatformBulkCreateAccountsBody,
+    type PlatformBulkSetOpeningBalancesBody,
     type PlatformCreateAccountBody,
     type PlatformCreateAccountGroupBody,
     type PlatformFinancialAccountUpdateBody,
     type PlatformLock,
     type PlatformMergeAccountsBody,
+    type PlatformOpeningBalanceAdjustmentSetBody,
+    type PlatformOpeningBalanceSetBody,
     type PlatformSetLockBody,
     type PlatformTransactionUpdateBody,
     type PlatformUpdateAccountBody,
@@ -551,6 +555,141 @@ export async function deleteAccountGroup({
     });
     if (result.status === 200) {
         return;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchOpeningBalances(query: {
+    entityId: string;
+    limit: number;
+    offset: number;
+}) {
+    const { entityId, ...rest } = query;
+    const result = await api.openingBalances.list({
+        params: { entityId },
+        query: rest,
+    });
+    if (result.status === 200) {
+        return result.body;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * The listing only carries accounts that have a main opening balance or an
+ * adjustment, and the tab joins it onto the whole chart, so walk the offsets
+ * like `fetchAllChartOfAccounts` does.
+ */
+export async function fetchAllOpeningBalances(
+    entityId: string,
+): Promise<PlatformAccountOpeningBalance[]> {
+    const openingBalances: PlatformAccountOpeningBalance[] = [];
+    let offset = 0;
+    let total = 0;
+    do {
+        const page = await fetchOpeningBalances({
+            entityId,
+            limit: PLATFORM_PAGE_LIMIT_MAX,
+            offset,
+        });
+        openingBalances.push(...page.data);
+        total = page.pagination.total;
+        offset += PLATFORM_PAGE_LIMIT_MAX;
+    } while (openingBalances.length < total);
+    return openingBalances;
+}
+
+/** Creates or replaces the main opening balance; the adjustment is untouched. */
+export async function setOpeningBalance({
+    entityId,
+    accountId,
+    body,
+}: {
+    entityId: string;
+    accountId: string;
+    body: PlatformOpeningBalanceSetBody;
+}) {
+    const result = await api.openingBalances.set({
+        params: { entityId, accountId },
+        body,
+    });
+    if (result.status === 200) {
+        return result.body.accountOpeningBalance;
+    }
+    throw toApiError(result);
+}
+
+/** Creates or replaces the adjustment; the main opening balance is untouched. */
+export async function setOpeningBalanceAdjustment({
+    entityId,
+    accountId,
+    body,
+}: {
+    entityId: string;
+    accountId: string;
+    body: PlatformOpeningBalanceAdjustmentSetBody;
+}) {
+    const result = await api.openingBalances.setAdjustment({
+        params: { entityId, accountId },
+        body,
+    });
+    if (result.status === 200) {
+        return result.body.accountOpeningBalance;
+    }
+    throw toApiError(result);
+}
+
+/** Keeps the main opening balance; 409 once the bank account is reconciled. */
+export async function deleteOpeningBalanceAdjustment({
+    entityId,
+    accountId,
+}: {
+    entityId: string;
+    accountId: string;
+}) {
+    const result = await api.openingBalances.deleteAdjustment({
+        params: { entityId, accountId },
+    });
+    if (result.status === 200) {
+        return;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Deletes the main opening balance and the adjustment together; 409 once the
+ * bank account is reconciled.
+ */
+export async function deleteOpeningBalance({
+    entityId,
+    accountId,
+}: {
+    entityId: string;
+    accountId: string;
+}) {
+    const result = await api.openingBalances.delete({
+        params: { entityId, accountId },
+    });
+    if (result.status === 200) {
+        return;
+    }
+    throw toApiError(result);
+}
+
+/** Atomic upstream: a batch that fails validation saves nothing. */
+export async function bulkSetOpeningBalances({
+    entityId,
+    body,
+}: {
+    entityId: string;
+    body: PlatformBulkSetOpeningBalancesBody;
+}) {
+    const result = await api.openingBalances.bulkSet({
+        params: { entityId },
+        body,
+    });
+    if (result.status === 200) {
+        return result.body.data;
     }
     throw toApiError(result);
 }
