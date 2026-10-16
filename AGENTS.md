@@ -62,7 +62,7 @@ flows:
   `/platform/v1/entities/:entityId/account-groups`,
   `/platform/v1/entities/:entityId/accounting-migration`,
   `/platform/v1/entities/:entityId/journal-entries`,
-  `/platform/v1/entities/:entityId/reports/*`).
+  `/platform/v1/entities/:entityId/reports/*`, `/platform/v1/locks`).
 - The backend consumes it twice: `initClient` against Kick
   (`backend/src/kick-client.ts`) and `initServer`/`createExpressEndpoints`
   mounted under `/api` (`backend/src/router.ts`, `backend/src/index.ts`), so
@@ -74,9 +74,9 @@ flows:
 - Handlers are pure pass-through. Declared upstream errors
   (400/401/404/409/422/429) are forwarded verbatim; anything undeclared becomes
   a 502 via `UpstreamError`. Deleting a Plaid connection, updating a
-  transaction inside a locked bookkeeping period, deleting an account that has
-  journal entries, a blocked account merge, the accounting-migration routes
-  (a second migration, or triggering rule generation twice), a
+  transaction dated on or before the entity's lock date, deleting an account
+  that has journal entries, a blocked account merge, the accounting-migration
+  routes (a second migration, or triggering rule generation twice), a
   financial-account date change blocked by reconciliations or an opening
   balance, and deleting a financial account that manual journal entries post
   to answer 409 today;
@@ -179,14 +179,15 @@ Three constraints hold it together:
    `index.ts` is fine; moving the JSON parser back to the top is not.
 2. **It is not a ts-rest route.** Validating the body against a contract would
    reject an event Kick adds later, which is the opposite of logging whatever
-   arrives. Deliveries with an unknown payload shape are logged as
-   `unrecognized payload` and answered `200`.
-3. **Kick sends the payload with no envelope**, and the event name lives only on
-   the Svix message, so `identifyKickWebhookEvent` in
-   `shared/src/schemas/webhook-event.schema.ts` names an event by matching its
-   shape. Adding a new event means vendoring its payload schema there and
-   listing it in `KICK_WEBHOOK_EVENTS`; two events with structurally
-   indistinguishable payloads would need a real discriminator.
+   arrives. Deliveries for an event the demo does not vendor are logged as
+   `<event> (unknown to this demo)`, bodies that are not an envelope as
+   `unrecognized payload`, and both are answered `200`.
+3. **Every delivery is wrapped in an envelope**,
+   `{ event, version, occurredAt, payload }`, so `identifyKickWebhookEvent` in
+   `shared/src/schemas/webhook-event.schema.ts` names an event by its `event`
+   field and then checks `payload` against the vendored schema. `version`
+   versions the envelope, not a single event. Adding a new event means
+   vendoring its payload schema there and listing it in `KICK_WEBHOOK_EVENTS`.
 
 Signature verification uses the `svix` package with
 `KICK_WEBHOOK_SIGNING_SECRET`, per-endpoint and rotatable in Kick's portal.
@@ -225,10 +226,10 @@ codes whenever a provider gains a new way to break.
 
 ## Vendored resources and deliberate gaps
 
-Eleven resources are vendored: the organization, workspaces, entities, Plaid
+Twelve resources are vendored: the organization, workspaces, entities, Plaid
 connections, financial accounts, transactions, the chart of accounts, account
-groups, accounting migrations, journal entries and reports. Some upstream
-routes are intentionally left out:
+groups, locks, accounting migrations, journal entries and reports. Some
+upstream routes are intentionally left out:
 
 - Workspaces: `list`, `create`, `get` and `update`. `create` requires a `plan`
   and `update`'s body is `{ plan }` and nothing else — both mirror upstream,
@@ -293,6 +294,14 @@ routes are intentionally left out:
   which is why the BFF sets a `qs` query parser with a raised `arrayLimit` in
   `backend/src/index.ts` — Express's default stops building an array past
   index 20.
+- Locks: both upstream routes, `list` and `set`. Unlike every other resource
+  they sit at the organization level rather than under a workspace or entity
+  path: `list` narrows by `workspaceIds` / `entityIds` query arrays (an id
+  outside the organization answers 400) and `set` is a `PUT` naming its entity
+  in the body, with a null `date` unlocking it. `list` leaves unlocked
+  entities out entirely, so the Locks tab drives its table off the
+  workspace's entities and reads a missing lock as unlocked rather than
+  paging the lock listing on its own.
 - Plaid: the Platform API's `create` takes a `processor_token` and has no
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is

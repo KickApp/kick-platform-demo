@@ -6,6 +6,7 @@ import { WorkspaceChartOfAccountsPage } from "./pages/WorkspaceChartOfAccountsPa
 import { WorkspaceEntitiesPage } from "./pages/WorkspaceEntitiesPage";
 import { WorkspaceFinancialAccountsPage } from "./pages/WorkspaceFinancialAccountsPage";
 import { WorkspaceLayout } from "./pages/WorkspaceLayout";
+import { WorkspaceLocksPage } from "./pages/WorkspaceLocksPage";
 import { WorkspacePlaidConnectionsPage } from "./pages/WorkspacePlaidConnectionsPage";
 import { WorkspaceReportsPage } from "./pages/WorkspaceReportsPage";
 import { WorkspaceTransactionsPage } from "./pages/WorkspaceTransactionsPage";
@@ -20,7 +21,7 @@ export function App() {
                 </Link>
                 <span className="app-subtitle">
                     Workspaces, entities, the chart of accounts, account groups,
-                    Plaid connections, financial accounts, transactions,
+                    Plaid connections, financial accounts, transactions, locks,
                     accounting migrations &amp; reports via the Platform API
                 </span>
             </header>
@@ -63,6 +64,7 @@ export function App() {
                             path="transactions"
                             element={<WorkspaceTransactionsPage />}
                         />
+                        <Route path="locks" element={<WorkspaceLocksPage />} />
                         <Route
                             path="migration"
                             element={<WorkspaceAccountingMigrationPage />}

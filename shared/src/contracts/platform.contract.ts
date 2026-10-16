@@ -42,6 +42,12 @@ import {
     platformEntityResponseSchema,
 } from "../schemas/entity.schema";
 import {
+    platformLockResponseSchema,
+    platformLocksListQuerySchema,
+    platformLocksListResponseSchema,
+    platformSetLockBodySchema,
+} from "../schemas/lock.schema";
+import {
     platformFinancialAccountDeleteQuerySchema,
     platformFinancialAccountMoveBodySchema,
     platformFinancialAccountPathParamsSchema,
@@ -96,8 +102,8 @@ const c = initContract();
  *
  * Error responses are declared as the superset {400, 401, 404, 409, 422, 429}
  * on every route so the BFF can pass upstream errors through uniformly.
- * Deleting a Plaid connection, updating a transaction inside a locked
- * bookkeeping period, deleting an account that has journal entries and a
+ * Deleting a Plaid connection, updating a transaction dated on or before the
+ * entity's lock date, deleting an account that has journal entries and a
  * blocked account merge, a second accounting migration and triggering its rule
  * generation twice, a financial-account date change blocked by reconciliations
  * or an opening balance, and deleting a financial account that manual journal
@@ -646,6 +652,37 @@ const reportsContract = c.router(
     { pathPrefix: "/platform/v1/entities/:entityId/reports" },
 );
 
+/**
+ * Locks span the organization's client workspaces rather than nesting under a
+ * workspace or entity: `list` narrows by `workspaceIds`/`entityIds` in the
+ * query and leaves unlocked entities out, and `set` addresses its entity in the
+ * body. A null `date` unlocks the entity; a changed date fires the
+ * `entity.lock_date.changed` webhook.
+ */
+const locksContract = c.router(
+    {
+        list: {
+            method: "GET",
+            path: "",
+            query: platformLocksListQuerySchema,
+            responses: {
+                200: platformLocksListResponseSchema,
+                ...errorResponses,
+            },
+        },
+        set: {
+            method: "PUT",
+            path: "",
+            body: platformSetLockBodySchema,
+            responses: {
+                200: platformLockResponseSchema,
+                ...errorResponses,
+            },
+        },
+    },
+    { pathPrefix: "/platform/v1/locks" },
+);
+
 export const platformContract = c.router({
     organization: organizationContract,
     workspaces: workspacesContract,
@@ -658,4 +695,5 @@ export const platformContract = c.router({
     accountingMigration: accountingMigrationContract,
     journalEntries: journalEntriesContract,
     reports: reportsContract,
+    locks: locksContract,
 });

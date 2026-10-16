@@ -3,19 +3,20 @@
 Demo app for the [Kick](https://kick.co) Platform API: a React frontend and a
 small Express BFF backend covering the **organization**, **workspaces**,
 **entities**, **Plaid connections**, **financial accounts**, **transactions**,
-the **chart of accounts**, **account groups**, **accounting migrations** (with
-the **journal entries** they migrate) and **reports** through the external
-Platform API.
+the **chart of accounts**, **account groups**, entity **locks**, **accounting
+migrations** (with the **journal entries** they migrate) and **reports** through
+the external Platform API.
 
-Opening a workspace gives eight tabs: manage its entities, manage an entity's
+Opening a workspace gives nine tabs: manage its entities, manage an entity's
 chart of accounts (create, rename, move between groups, archive, delete),
 manage the account groups arranging that chart into a hierarchy, manage the
 Plaid connections the partner created (list, connect through Plaid Link,
 delete), manage the workspace's financial accounts of every source (rename,
 change bookkeeping dates, move to another entity, delete — see
 [Financial accounts](#financial-accounts)), read the workspace's transactions
-across every entity and
-recategorize them, migrate an entity's historical books and generate
+across every entity and recategorize them, lock or unlock each entity's books
+through a date (see [Locks](#locks)), migrate an entity's historical books and
+generate
 categorization rules from them (see
 [Accounting migration](#accounting-migration)), and read an entity's
 accounting reports. The backend also receives Kick's webhooks and logs them —
@@ -152,10 +153,24 @@ curl -s -X DELETE "http://localhost:4001/api/platform/v1/workspaces/<uuid>/finan
 # List transactions of a workspace within an inclusive date range
 curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions?startDate=2026-01-01&endDate=2026-01-31"
 
-# Categorize a transaction (null clears it; 409 inside a locked bookkeeping period)
+# Categorize a transaction (null clears it; 409 when dated on or before the entity's lock date)
 curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions/<uuid>" \
   -H "Content-Type: application/json" \
   -d '{"accountId": "<uuid>"}'
+
+# List the locks of a workspace's entities (unlocked entities are left out;
+# entityIds narrows further, and both filters take repeated params)
+curl -s "http://localhost:4001/api/platform/v1/locks?workspaceIds=<uuid>"
+
+# Lock an entity's books through a date, inclusive (fires entity.lock_date.changed)
+curl -s -X PUT "http://localhost:4001/api/platform/v1/locks" \
+  -H "Content-Type: application/json" \
+  -d '{"entityId": "<uuid>", "date": "2026-09-30"}'
+
+# Unlock an entity
+curl -s -X PUT "http://localhost:4001/api/platform/v1/locks" \
+  -H "Content-Type: application/json" \
+  -d '{"entityId": "<uuid>", "date": null}'
 
 # List an entity's chart of accounts (archived accounts included, flagged isDisabled)
 curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts?limit=100"
@@ -338,11 +353,12 @@ connections' health; the Platform API has no route to change it.
 
 ## Webhooks
 
-Kick reports things that happen outside an API call as webhooks — today only
-that a Plaid connection stopped syncing and the business owner has to reconnect
-it. This demo receives them at `POST /api/demo/v1/webhooks/kick` and does one
-thing with them: prints them. Nothing is stored and no resource is refetched, so
-no screen reacts to an incoming event.
+Kick reports things that happen outside an API call as webhooks — today that a
+Plaid connection stopped syncing and the business owner has to reconnect it,
+and that an entity's lock date changed. This demo receives them at
+`POST /api/demo/v1/webhooks/kick` and does one thing with them: prints them.
+Nothing is stored and no resource is refetched, so no screen reacts to an
+incoming event.
 
 Configure the endpoint URL and copy its `whsec_...` signing secret in the Kick
 app under **Organization → API → Webhooks → Open portal**, then set
@@ -352,7 +368,7 @@ reach the endpoint, so a local backend needs a public tunnel — e.g.
 `https://<subdomain>.ngrok.app/api/demo/v1/webhooks/kick`.
 
 Deliveries arrive [Svix-signed](https://docs.svix.com/receiving/verifying-payloads/how):
-the body is the bare event payload, and `svix-id`, `svix-timestamp` and
+the body is a JSON envelope, and `svix-id`, `svix-timestamp` and
 `svix-signature` headers (or their `webhook-` prefixed aliases) sign the raw
 request bytes. With the secret set, a delivery whose signature does not verify
 is answered `400`; without it deliveries are still logged, marked
@@ -362,30 +378,35 @@ point a real endpoint at.
 A logged delivery looks like this:
 
 ```
-[webhook] plaid.connection.disconnected id=msg_2hT8kQ timestamp=2026-08-11T07:20:00.000Z signature=verified
+[webhook] entity.lock_date.changed id=msg_2hT8kQ timestamp=2026-10-16T07:20:00.000Z signature=verified
 {
+  "event": "entity.lock_date.changed",
   "version": 1,
-  "connectionId": "6f1c...",
-  "workspaceId": "b0a2...",
-  "entityId": "48d9...",
-  "bankName": "Mercury",
-  "errorCode": "disconnected",
-  "occurredAt": 1786520400
+  "occurredAt": 1792142400,
+  "payload": {
+    "entityId": "48d9...",
+    "workspaceId": "b0a2...",
+    "date": "2026-09-30",
+    "previousDate": "2026-08-31"
+  }
 }
 ```
 
-The event name never crosses the wire: Kick sets it on the Svix message and
-sends the payload alone. The receiver therefore names an event by matching its
-shape against the schemas in `shared/src/schemas/webhook-event.schema.ts`. A
-payload matching none of them is logged as `unrecognized payload` and still
-answered `200` — that is what an event added upstream looks like from here.
+Every delivery carries the same envelope: `event` names it, `version` versions
+the envelope, `occurredAt` is Unix seconds and `payload` is the event's own
+shape. The receiver names a delivery by its `event` and checks the payload
+against the schemas in `shared/src/schemas/webhook-event.schema.ts`. An event
+the demo does not vendor (or whose payload no longer matches) is logged as
+`<event> (unknown to this demo)`, and a body that is not an envelope as
+`unrecognized payload`; both are still answered `200` — that is what an event
+added upstream looks like from here.
 
 With `KICK_WEBHOOK_SIGNING_SECRET` unset you can replay a delivery yourself:
 
 ```bash
 curl -s -X POST http://localhost:4001/api/demo/v1/webhooks/kick \
   -H 'Content-Type: application/json' \
-  -d '{"version":1,"connectionId":"'"$(uuidgen)"'","workspaceId":"'"$(uuidgen)"'","entityId":"'"$(uuidgen)"'","bankName":"Mercury","errorCode":"disconnected","occurredAt":1786520400}'
+  -d '{"event":"entity.lock_date.changed","version":1,"occurredAt":1792142400,"payload":{"entityId":"'"$(uuidgen)"'","workspaceId":"'"$(uuidgen)"'","date":"2026-09-30","previousDate":null}}'
 ```
 
 ## Managing the chart of accounts
@@ -490,6 +511,18 @@ that rule generation clusters on the way bank descriptions cluster. The tab
 then polls the migration until the rules are seeded and lists the entity's
 manual journal entries underneath.
 
+## Locks
+
+An entity has at most one lock: a single date through which its books are
+closed, inclusive. Kick then refuses changes to the entity's transactions and
+journal entries dated on or before it — recategorizing such a transaction in
+the Transactions tab answers `409`. The Locks tab lists every entity of the
+workspace with its current lock date, and sets or clears it with
+`PUT /platform/v1/locks`. The lock listing spans the organization and leaves
+unlocked entities out, so the tab narrows it to the workspace and treats an
+entity without a lock as unlocked. Every change of the date fires the
+`entity.lock_date.changed` webhook (see [Webhooks](#webhooks)).
+
 ## Reports
 
 The Reports tab covers all five Platform API reports — profit and loss, balance
@@ -508,7 +541,7 @@ backend/   Express BFF: authenticates to Kick, passes requests/errors through,
            logs incoming webhooks
 frontend/  React app: workspaces list/create/change-plan, then per-workspace entities,
            chart of accounts, account groups, Plaid connections, financial
-           accounts, transactions, accounting migration and reports tabs
+           accounts, transactions, locks, accounting migration and reports tabs
 ```
 
 See [AGENTS.md](AGENTS.md) for a guide aimed at coding agents extending this
