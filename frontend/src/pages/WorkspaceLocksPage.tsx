@@ -74,7 +74,6 @@ export function WorkspaceLocksPage() {
                                 <th>Entity</th>
                                 <th>Locked through</th>
                                 <th>New lock date</th>
-                                <th>ID</th>
                                 <th />
                             </tr>
                         </thead>

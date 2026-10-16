@@ -55,7 +55,6 @@ export function EntityLockRow({
                     }}
                 />
             </td>
-            <td className="mono">{entity.id}</td>
             <td>
                 <div className="row-actions">
                     {mutation.isPending ? (
