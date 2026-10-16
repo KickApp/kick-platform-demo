@@ -11,6 +11,7 @@ import {
     type PlatformBulkCreateAccountsBody,
     type PlatformCreateAccountBody,
     type PlatformCreateAccountGroupBody,
+    type PlatformFinancialAccountUpdateBody,
     type PlatformLock,
     type PlatformMergeAccountsBody,
     type PlatformSetLockBody,
@@ -165,6 +166,95 @@ export async function updateTransaction({
     });
     if (result.status === 200) {
         return result.body.transaction;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchFinancialAccounts(query: {
+    workspaceId: string;
+    entityIds?: string[];
+    limit: number;
+    offset: number;
+}) {
+    const { workspaceId, ...rest } = query;
+    const result = await api.financialAccounts.list({
+        params: { workspaceId },
+        query: rest,
+    });
+    if (result.status === 200) {
+        return result.body;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Only the fields present in the body are touched; `null` clears a
+ * bookkeeping date. Changing either date regenerates the account's journal
+ * entries, and answers 409 when its reconciliations or opening balance block
+ * the change.
+ */
+export async function updateFinancialAccount({
+    workspaceId,
+    financialAccountId,
+    body,
+}: {
+    workspaceId: string;
+    financialAccountId: string;
+    body: PlatformFinancialAccountUpdateBody;
+}) {
+    const result = await api.financialAccounts.update({
+        params: { workspaceId, financialAccountId },
+        body,
+    });
+    if (result.status === 200) {
+        return result.body.financialAccount;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Moves the account, with its transactions, documents and accounting data, to
+ * another entity of the same workspace.
+ */
+export async function moveFinancialAccount({
+    workspaceId,
+    financialAccountId,
+    entityId,
+}: {
+    workspaceId: string;
+    financialAccountId: string;
+    entityId: string;
+}) {
+    const result = await api.financialAccounts.move({
+        params: { workspaceId, financialAccountId },
+        body: { entityId },
+    });
+    if (result.status === 200) {
+        return result.body.financialAccount;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Permanent, and takes the account's transactions with it. An account that
+ * manual journal entries post to answers 409 unless `forceDeletion` is set,
+ * which deletes those journal entries too.
+ */
+export async function deleteFinancialAccount({
+    workspaceId,
+    financialAccountId,
+    forceDeletion,
+}: {
+    workspaceId: string;
+    financialAccountId: string;
+    forceDeletion: boolean;
+}) {
+    const result = await api.financialAccounts.delete({
+        params: { workspaceId, financialAccountId },
+        query: forceDeletion ? { forceDeletion: "true" } : {},
+    });
+    if (result.status === 200) {
+        return;
     }
     throw toApiError(result);
 }

@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 /**
- * A single value and a repeated (or indexed) query param both normalize to an
+ * Multi-choice uuid query param, matching how the upstream API parses it: a
+ * single value and a repeated (or indexed) query param both normalize to an
  * array; an empty value reads as "filter not provided".
  */
 export const uuidArrayQueryParamSchema = z.preprocess((value) => {

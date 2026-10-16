@@ -48,6 +48,16 @@ import {
     platformSetLockBodySchema,
 } from "../schemas/lock.schema";
 import {
+    platformFinancialAccountDeleteQuerySchema,
+    platformFinancialAccountMoveBodySchema,
+    platformFinancialAccountPathParamsSchema,
+    platformFinancialAccountResponseSchema,
+    platformFinancialAccountsListQuerySchema,
+    platformFinancialAccountsListResponseSchema,
+    platformFinancialAccountsPathParamsSchema,
+    platformFinancialAccountUpdateBodySchema,
+} from "../schemas/financial-account.schema";
+import {
     platformBalanceSheetResponseSchema,
     platformCashFlowResponseSchema,
     platformGeneralLedgerQuerySchema,
@@ -95,7 +105,9 @@ const c = initContract();
  * Deleting a Plaid connection, updating a transaction dated on or before the
  * entity's lock date, deleting an account that has journal entries and a
  * blocked account merge, a second accounting migration and triggering its rule
- * generation twice are the routes that actually answer 409 today; the merge is
+ * generation twice, a financial-account date change blocked by reconciliations
+ * or an opening balance, and deleting a financial account that manual journal
+ * entries post to are the routes that actually answer 409 today; the merge is
  * the one whose 409 body carries structured blockers rather than plain
  * `{ message }`. Preparing categorization for an entity that is not on a
  * custom chart of accounts and generating migration transaction rules for an
@@ -278,6 +290,63 @@ const transactionsContract = c.router(
         },
     },
     { pathPrefix: "/platform/v1/workspaces/:workspaceId/transactions" },
+);
+
+/**
+ * Financial accounts of every source (integrations, file imports, manual) are
+ * addressed across every entity of a workspace, so the routes are nested under
+ * the workspace uuid. There is no upstream `get`: the listing carries the
+ * whole row. `update` touches only the fields present in the body, `move`
+ * reassigns the account to another entity of the same workspace, and `delete`
+ * is permanent and takes the account's transactions with it.
+ */
+const financialAccountsContract = c.router(
+    {
+        list: {
+            method: "GET",
+            path: "",
+            pathParams: platformFinancialAccountsPathParamsSchema,
+            query: platformFinancialAccountsListQuerySchema,
+            responses: {
+                200: platformFinancialAccountsListResponseSchema,
+                ...errorResponses,
+            },
+        },
+        update: {
+            method: "PATCH",
+            path: "/:financialAccountId",
+            pathParams: platformFinancialAccountPathParamsSchema,
+            body: platformFinancialAccountUpdateBodySchema,
+            responses: {
+                200: platformFinancialAccountResponseSchema,
+                ...errorResponses,
+            },
+        },
+        move: {
+            method: "POST",
+            path: "/:financialAccountId/move",
+            pathParams: platformFinancialAccountPathParamsSchema,
+            body: platformFinancialAccountMoveBodySchema,
+            responses: {
+                200: platformFinancialAccountResponseSchema,
+                ...errorResponses,
+            },
+        },
+        delete: {
+            method: "DELETE",
+            path: "/:financialAccountId",
+            pathParams: platformFinancialAccountPathParamsSchema,
+            query: platformFinancialAccountDeleteQuerySchema,
+            body: c.noBody(),
+            responses: {
+                200: c.noBody(),
+                ...errorResponses,
+            },
+        },
+    },
+    {
+        pathPrefix: "/platform/v1/workspaces/:workspaceId/financial-accounts",
+    },
 );
 
 /**
@@ -620,6 +689,7 @@ export const platformContract = c.router({
     entities: entitiesContract,
     plaidConnections: plaidConnectionsContract,
     transactions: transactionsContract,
+    financialAccounts: financialAccountsContract,
     chartOfAccounts: chartOfAccountsContract,
     accountGroups: accountGroupsContract,
     accountingMigration: accountingMigrationContract,

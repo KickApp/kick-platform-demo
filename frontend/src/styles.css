@@ -205,6 +205,18 @@ tbody tr:hover {
     font-size: 12px;
 }
 
+.badge-success {
+    border-color: #b7e2c4;
+    background: #e9f7ee;
+    color: #1d6b36;
+}
+
+.badge-danger {
+    border-color: #f3c2bf;
+    background: var(--danger-bg);
+    color: var(--danger-text);
+}
+
 .report-section-row td {
     background: var(--bg);
     font-size: 12px;
@@ -301,6 +313,20 @@ tbody tr:hover {
     color: var(--danger-text);
     font-size: 12px;
     white-space: normal;
+}
+
+.cell-hint {
+    display: block;
+    max-width: 260px;
+    margin-top: 4px;
+    color: var(--text-muted);
+    font-size: 12px;
+    white-space: normal;
+}
+
+.cell-control {
+    width: auto;
+    min-width: 150px;
 }
 
 .cell-editor select,

@@ -57,6 +57,7 @@ flows:
   paths exactly (`/platform/v1/organization`, `/platform/v1/workspaces`,
   `/platform/v1/entities`, `/platform/v1/plaid-connections`,
   `/platform/v1/workspaces/:workspaceId/transactions`,
+  `/platform/v1/workspaces/:workspaceId/financial-accounts`,
   `/platform/v1/entities/:entityId/chart-of-accounts`,
   `/platform/v1/entities/:entityId/account-groups`,
   `/platform/v1/entities/:entityId/accounting-migration`,
@@ -73,9 +74,12 @@ flows:
 - Handlers are pure pass-through. Declared upstream errors
   (400/401/404/409/422/429) are forwarded verbatim; anything undeclared becomes
   a 502 via `UpstreamError`. Deleting a Plaid connection, updating a
-  transaction dated on or before the entity's lock date, deleting an account that has
-  journal entries, a blocked account merge and the accounting-migration routes
-  (a second migration, or triggering rule generation twice) answer 409 today;
+  transaction dated on or before the entity's lock date, deleting an account
+  that has journal entries, a blocked account merge, the accounting-migration
+  routes (a second migration, or triggering rule generation twice), a
+  financial-account date change blocked by reconciliations or an opening
+  balance, and deleting a financial account that manual journal entries post
+  to answer 409 today;
   preparing categorization and generating migration transaction rules for an
   ineligible workspace answer 422. The contract declares the same error
   superset on every route.
@@ -215,14 +219,17 @@ while the chart was read-only, which went unnoticed until they reached a create
 form. `ACCOUNT_TYPE_CLASSES` alongside it is the one piece of derived knowledge
 vendored rather than read off the wire — Kick derives an account's class from
 its type and never accepts it on a write, so a form offering types has to know
-the rollup to group them.
+the rollup to group them. The financial account types, sources, sync statuses
+and sync error codes in `financial-account.schema.ts` are enums to watch as
+well — the source list grows whenever Kick adds an integration, and the error
+codes whenever a provider gains a new way to break.
 
 ## Vendored resources and deliberate gaps
 
-Eleven resources are vendored: the organization, workspaces, entities, Plaid
-connections, transactions, the chart of accounts, account groups, locks,
-accounting migrations, journal entries and reports. Some upstream routes are
-intentionally left out:
+Twelve resources are vendored: the organization, workspaces, entities, Plaid
+connections, financial accounts, transactions, the chart of accounts, account
+groups, locks, accounting migrations, journal entries and reports. Some
+upstream routes are intentionally left out:
 
 - Workspaces: `list`, `create`, `get` and `update`. `create` requires a `plan`
   and `update`'s body is `{ plan }` and nothing else — both mirror upstream,
@@ -230,6 +237,23 @@ intentionally left out:
   billing and takes effect immediately. The upstream `delete` (permanent, with
   everything in the workspace) is deliberately not vendored: too destructive
   for a demo surface.
+- Financial accounts: the whole upstream surface — `list`, `update`, `move`
+  and `delete`; there is no upstream `get`. They cover every source
+  (integrations, file imports, manual), not just the Plaid connections the
+  partner created. The read-only sync fields (`transactionsSyncedAt`,
+  `balanceSyncedAt`, `syncStatus`, `syncErrorCode`) are rolled up by Kick
+  across every connection feeding the account — `healthy` while any one of
+  them syncs — so the UI shows them as reported rather than deriving anything
+  per connection. `update` takes only `name` and the two bookkeeping dates
+  (null clears one), and changing a date regenerates the account's journal
+  entries — 400 out of range, 409 when reconciliations or an opening balance
+  block it. `move` stays inside the workspace, keeps the bookkeeping dates and
+  is a no-op onto the current entity. `delete` is permanent, takes the
+  transactions (and an emptied integration connection) with it, and answers
+  409 when manual journal entries post to the account unless
+  `forceDeletion=true`, which the UI offers only after that 409. A move or a
+  delete changes what other tabs read, so the row invalidates the
+  transactions, chart-of-accounts, journal-entry and report queries too.
 - Transactions: `list` and `update`. The upstream `get` is not vendored — the
   listing already carries the whole row.
 - Chart of accounts: everything except `get`, for the same reason as
