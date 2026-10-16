@@ -79,12 +79,69 @@ export const FINANCIAL_ACCOUNT_SOURCE_LABELS: Record<
 };
 
 /**
+ * Health of the connections feeding an account, rolled up across all of
+ * them: `healthy` while at least one still syncs, `error` once every one is
+ * broken and needs the user to reconnect, `not_connected` when nothing syncs
+ * the account (manual entry, file imports, or a removed connection).
+ */
+export const FINANCIAL_ACCOUNT_SYNC_STATUSES = [
+    "healthy",
+    "error",
+    "not_connected",
+] as const;
+
+export const financialAccountSyncStatusSchema = z.enum(
+    FINANCIAL_ACCOUNT_SYNC_STATUSES,
+);
+
+export type FinancialAccountSyncStatus = z.infer<
+    typeof financialAccountSyncStatusSchema
+>;
+
+export const FINANCIAL_ACCOUNT_SYNC_STATUS_LABELS: Record<
+    FinancialAccountSyncStatus,
+    string
+> = {
+    healthy: "Healthy",
+    error: "Sync error",
+    not_connected: "Not connected",
+};
+
+/** Why syncing stopped; set only when the sync status is `error`. */
+export const FINANCIAL_ACCOUNT_SYNC_ERROR_CODES = [
+    "disconnected",
+    "mfa_required",
+    "item_not_supported",
+    "item_removed",
+] as const;
+
+export const financialAccountSyncErrorCodeSchema = z.enum(
+    FINANCIAL_ACCOUNT_SYNC_ERROR_CODES,
+);
+
+export type FinancialAccountSyncErrorCode = z.infer<
+    typeof financialAccountSyncErrorCodeSchema
+>;
+
+export const FINANCIAL_ACCOUNT_SYNC_ERROR_CODE_LABELS: Record<
+    FinancialAccountSyncErrorCode,
+    string
+> = {
+    disconnected: "Lost its authorization and must be reconnected",
+    mfa_required: "The institution asks for multi-factor authentication",
+    item_not_supported: "The institution no longer supports the connection",
+    item_removed: "The connection was removed at the institution",
+};
+
+/**
  * Wire shape of a Platform API financial account. Only accounts assigned to an
  * entity of the workspace are reachable, so `entityId` is never null. The
  * bookkeeping dates are date-only strings (YYYY-MM-DD): a null start date
  * follows the entity's bookkeeping start date and a null end date leaves the
  * account open-ended. `disabled` means syncing new transactions is turned
- * off. `createdAt` is an ISO-8601 datetime string.
+ * off. The sync fields roll up every connection feeding the account: the two
+ * `...SyncedAt` times are the latest across them (null when never synced).
+ * `createdAt` and the sync times are ISO-8601 datetime strings.
  */
 export const platformFinancialAccountSchema = z.object({
     id: z.string().uuid(),
@@ -98,6 +155,10 @@ export const platformFinancialAccountSchema = z.object({
     disabled: z.boolean(),
     bookkeepingStartDate: z.string().date().nullable(),
     bookkeepingEndDate: z.string().date().nullable(),
+    transactionsSyncedAt: z.string().nullable(),
+    balanceSyncedAt: z.string().nullable(),
+    syncStatus: financialAccountSyncStatusSchema,
+    syncErrorCode: financialAccountSyncErrorCodeSchema.nullable(),
     createdAt: z.string(),
 });
 

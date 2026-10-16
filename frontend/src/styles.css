@@ -205,6 +205,18 @@ tbody tr:hover {
     font-size: 12px;
 }
 
+.badge-success {
+    border-color: #b7e2c4;
+    background: #e9f7ee;
+    color: #1d6b36;
+}
+
+.badge-danger {
+    border-color: #f3c2bf;
+    background: var(--danger-bg);
+    color: var(--danger-text);
+}
+
 .report-section-row td {
     background: var(--bg);
     font-size: 12px;

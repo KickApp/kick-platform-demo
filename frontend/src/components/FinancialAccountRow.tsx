@@ -13,7 +13,8 @@ import {
     updateFinancialAccount,
 } from "../api/platform";
 import { ApiError } from "../api/errors";
-import { formatAmount } from "../lib/format";
+import { formatAmount, formatDate, formatDateTime } from "../lib/format";
+import { FinancialAccountSyncCell } from "./FinancialAccountSyncCell";
 
 type FinancialAccountWrite =
     | { action: "update"; body: PlatformFinancialAccountUpdateBody }
@@ -180,20 +181,7 @@ export function FinancialAccountRow({
                         }
                     />
                 ) : (
-                    <>
-                        {displayName}
-                        {account.disabled && (
-                            <>
-                                {" "}
-                                <span
-                                    className="badge"
-                                    title="Syncing new transactions is turned off"
-                                >
-                                    Sync off
-                                </span>
-                            </>
-                        )}
-                    </>
+                    displayName
                 )}
                 <div className="page-meta mono">{account.id}</div>
             </td>
@@ -247,6 +235,17 @@ export function FinancialAccountRow({
             </td>
             <td className="amount">
                 {account.balance !== null ? formatAmount(account.balance) : "—"}
+                {account.balanceSyncedAt !== null && (
+                    <div
+                        className="page-meta"
+                        title={formatDateTime(account.balanceSyncedAt)}
+                    >
+                        as of {formatDate(account.balanceSyncedAt)}
+                    </div>
+                )}
+            </td>
+            <td>
+                <FinancialAccountSyncCell account={account} />
             </td>
             <td>
                 {isEditing ? (

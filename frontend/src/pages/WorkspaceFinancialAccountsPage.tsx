@@ -91,6 +91,7 @@ export function WorkspaceFinancialAccountsPage() {
                                 <th>Source</th>
                                 <th>Entity</th>
                                 <th className="amount">Balance</th>
+                                <th>Sync</th>
                                 <th>Books from</th>
                                 <th>Books to</th>
                                 <th />

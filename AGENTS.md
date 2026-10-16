@@ -218,9 +218,10 @@ while the chart was read-only, which went unnoticed until they reached a create
 form. `ACCOUNT_TYPE_CLASSES` alongside it is the one piece of derived knowledge
 vendored rather than read off the wire — Kick derives an account's class from
 its type and never accepts it on a write, so a form offering types has to know
-the rollup to group them. The financial account types and sources in
-`financial-account.schema.ts` are enums to watch as well — the source list
-grows whenever Kick adds an integration.
+the rollup to group them. The financial account types, sources, sync statuses
+and sync error codes in `financial-account.schema.ts` are enums to watch as
+well — the source list grows whenever Kick adds an integration, and the error
+codes whenever a provider gains a new way to break.
 
 ## Vendored resources and deliberate gaps
 
@@ -238,7 +239,11 @@ routes are intentionally left out:
 - Financial accounts: the whole upstream surface — `list`, `update`, `move`
   and `delete`; there is no upstream `get`. They cover every source
   (integrations, file imports, manual), not just the Plaid connections the
-  partner created. `update` takes only `name` and the two bookkeeping dates
+  partner created. The read-only sync fields (`transactionsSyncedAt`,
+  `balanceSyncedAt`, `syncStatus`, `syncErrorCode`) are rolled up by Kick
+  across every connection feeding the account — `healthy` while any one of
+  them syncs — so the UI shows them as reported rather than deriving anything
+  per connection. `update` takes only `name` and the two bookkeeping dates
   (null clears one), and changing a date regenerates the account's journal
   entries — 400 out of range, 409 when reconciliations or an opening balance
   block it. `move` stays inside the workspace, keeps the bookkeeping dates and

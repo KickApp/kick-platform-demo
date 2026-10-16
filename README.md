@@ -324,9 +324,17 @@ Kick's message is shown when it declines:
   **Delete anyway**, which retries with `forceDeletion=true` and deletes those
   journal entries as well.
 
-A **Sync off** badge next to an account's name reflects its `disabled` flag,
-which turns off syncing new transactions; the Platform API has no route to
-change it.
+The **Sync** column shows `syncStatus`, which Kick rolls up across every
+connection feeding the account: **Healthy** while at least one of them still
+syncs, **Sync error** once every one is broken (with the reason from
+`syncErrorCode`, e.g. the connection lost its authorization and must be
+reconnected), and **Not connected** when nothing syncs the account — manual
+entry, file imports, or a removed connection. Underneath is the last time
+transactions synced (`transactionsSyncedAt`), and the balance carries the time
+it was last synced (`balanceSyncedAt`); both are the latest across the
+account's connections. A **Sync off** badge reflects the account's own
+`disabled` flag, which turns off syncing new transactions whatever the
+connections' health; the Platform API has no route to change it.
 
 ## Webhooks
 
