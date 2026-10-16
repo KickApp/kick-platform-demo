@@ -57,12 +57,13 @@ flows:
   paths exactly (`/platform/v1/organization`, `/platform/v1/workspaces`,
   `/platform/v1/entities`, `/platform/v1/plaid-connections`,
   `/platform/v1/workspaces/:workspaceId/transactions`,
+  `/platform/v1/workspaces/:workspaceId/financial-accounts`,
   `/platform/v1/entities/:entityId/chart-of-accounts`,
   `/platform/v1/entities/:entityId/account-groups`,
   `/platform/v1/entities/:entityId/opening-balances`,
   `/platform/v1/entities/:entityId/accounting-migration`,
   `/platform/v1/entities/:entityId/journal-entries`,
-  `/platform/v1/entities/:entityId/reports/*`).
+  `/platform/v1/entities/:entityId/reports/*`, `/platform/v1/locks`).
 - The backend consumes it twice: `initClient` against Kick
   (`backend/src/kick-client.ts`) and `initServer`/`createExpressEndpoints`
   mounted under `/api` (`backend/src/router.ts`, `backend/src/index.ts`), so
@@ -74,11 +75,13 @@ flows:
 - Handlers are pure pass-through. Declared upstream errors
   (400/401/404/409/422/429) are forwarded verbatim; anything undeclared becomes
   a 502 via `UpstreamError`. Deleting a Plaid connection, updating a
-  transaction inside a locked bookkeeping period, deleting an account that has
-  journal entries, a blocked account merge, the accounting-migration routes
-  (a second migration, or triggering rule generation twice), deleting an
-  opening balance once its bank account is reconciled and two concurrent
-  opening balance writes to the same account answer 409 today;
+  transaction dated on or before the entity's lock date, deleting an account
+  that has journal entries, a blocked account merge, the accounting-migration
+  routes (a second migration, or triggering rule generation twice), a
+  financial-account date change blocked by reconciliations or an opening
+  balance, deleting a financial account that manual journal entries post to,
+  deleting an opening balance once its bank account is reconciled and two
+  concurrent opening balance writes to the same account answer 409 today;
   preparing categorization and generating migration transaction rules for an
   ineligible workspace answer 422. The contract declares the same error
   superset on every route.
@@ -178,14 +181,15 @@ Three constraints hold it together:
    `index.ts` is fine; moving the JSON parser back to the top is not.
 2. **It is not a ts-rest route.** Validating the body against a contract would
    reject an event Kick adds later, which is the opposite of logging whatever
-   arrives. Deliveries with an unknown payload shape are logged as
-   `unrecognized payload` and answered `200`.
-3. **Kick sends the payload with no envelope**, and the event name lives only on
-   the Svix message, so `identifyKickWebhookEvent` in
-   `shared/src/schemas/webhook-event.schema.ts` names an event by matching its
-   shape. Adding a new event means vendoring its payload schema there and
-   listing it in `KICK_WEBHOOK_EVENTS`; two events with structurally
-   indistinguishable payloads would need a real discriminator.
+   arrives. Deliveries for an event the demo does not vendor are logged as
+   `<event> (unknown to this demo)`, bodies that are not an envelope as
+   `unrecognized payload`, and both are answered `200`.
+3. **Every delivery is wrapped in an envelope**,
+   `{ event, version, occurredAt, payload }`, so `identifyKickWebhookEvent` in
+   `shared/src/schemas/webhook-event.schema.ts` names an event by its `event`
+   field and then checks `payload` against the vendored schema. `version`
+   versions the envelope, not a single event. Adding a new event means
+   vendoring its payload schema there and listing it in `KICK_WEBHOOK_EVENTS`.
 
 Signature verification uses the `svix` package with
 `KICK_WEBHOOK_SIGNING_SECRET`, per-endpoint and rotatable in Kick's portal.
@@ -217,15 +221,17 @@ while the chart was read-only, which went unnoticed until they reached a create
 form. `ACCOUNT_TYPE_CLASSES` alongside it is the one piece of derived knowledge
 vendored rather than read off the wire — Kick derives an account's class from
 its type and never accepts it on a write, so a form offering types has to know
-the rollup to group them.
+the rollup to group them. The financial account types, sources, sync statuses
+and sync error codes in `financial-account.schema.ts` are enums to watch as
+well — the source list grows whenever Kick adds an integration, and the error
+codes whenever a provider gains a new way to break.
 
 ## Vendored resources and deliberate gaps
 
-Eleven resources are vendored: the organization, workspaces, entities, Plaid
-connections, transactions, the chart of accounts, account groups, opening
-balances, accounting migrations, journal entries and reports. Some upstream
-routes are
-intentionally left out:
+Thirteen resources are vendored: the organization, workspaces, entities, Plaid
+connections, financial accounts, transactions, the chart of accounts, account
+groups, opening balances, locks, accounting migrations, journal entries and
+reports. Some upstream routes are intentionally left out:
 
 - Workspaces: `list`, `create`, `get` and `update`. `create` requires a `plan`
   and `update`'s body is `{ plan }` and nothing else — both mirror upstream,
@@ -233,6 +239,23 @@ intentionally left out:
   billing and takes effect immediately. The upstream `delete` (permanent, with
   everything in the workspace) is deliberately not vendored: too destructive
   for a demo surface.
+- Financial accounts: the whole upstream surface — `list`, `update`, `move`
+  and `delete`; there is no upstream `get`. They cover every source
+  (integrations, file imports, manual), not just the Plaid connections the
+  partner created. The read-only sync fields (`transactionsSyncedAt`,
+  `balanceSyncedAt`, `syncStatus`, `syncErrorCode`) are rolled up by Kick
+  across every connection feeding the account — `healthy` while any one of
+  them syncs — so the UI shows them as reported rather than deriving anything
+  per connection. `update` takes only `name` and the two bookkeeping dates
+  (null clears one), and changing a date regenerates the account's journal
+  entries — 400 out of range, 409 when reconciliations or an opening balance
+  block it. `move` stays inside the workspace, keeps the bookkeeping dates and
+  is a no-op onto the current entity. `delete` is permanent, takes the
+  transactions (and an emptied integration connection) with it, and answers
+  409 when manual journal entries post to the account unless
+  `forceDeletion=true`, which the UI offers only after that 409. A move or a
+  delete changes what other tabs read, so the row invalidates the
+  transactions, chart-of-accounts, journal-entry and report queries too.
 - Transactions: `list` and `update`. The upstream `get` is not vendored — the
   listing already carries the whole row.
 - Chart of accounts: everything except `get`, for the same reason as
@@ -289,6 +312,14 @@ intentionally left out:
   which is why the BFF sets a `qs` query parser with a raised `arrayLimit` in
   `backend/src/index.ts` — Express's default stops building an array past
   index 20.
+- Locks: both upstream routes, `list` and `set`. Unlike every other resource
+  they sit at the organization level rather than under a workspace or entity
+  path: `list` narrows by `workspaceIds` / `entityIds` query arrays (an id
+  outside the organization answers 400) and `set` is a `PUT` naming its entity
+  in the body, with a null `date` unlocking it. `list` leaves unlocked
+  entities out entirely, so the Locks tab drives its table off the
+  workspace's entities and reads a missing lock as unlocked rather than
+  paging the lock listing on its own.
 - Plaid: the Platform API's `create` takes a `processor_token` and has no
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is

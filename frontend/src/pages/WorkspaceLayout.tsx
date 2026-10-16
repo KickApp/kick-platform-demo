@@ -16,7 +16,9 @@ const TABS = [
     { path: "account-groups", label: "Account groups" },
     { path: "opening-balances", label: "Opening balances" },
     { path: "plaid-connections", label: "Plaid connections" },
+    { path: "financial-accounts", label: "Financial accounts" },
     { path: "transactions", label: "Transactions" },
+    { path: "locks", label: "Locks" },
     { path: "migration", label: "Migration" },
     { path: "reports", label: "Reports" },
 ];

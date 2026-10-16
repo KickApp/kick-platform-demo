@@ -76,18 +76,24 @@ function logDelivery({
     payload: unknown;
     signature: "verified" | "unverified";
 }): void {
-    const eventName = identifyKickWebhookEvent(payload);
+    const identification = identifyKickWebhookEvent(payload);
+    const label =
+        identification.kind === "unrecognized"
+            ? "unrecognized payload"
+            : identification.kind === "unknown"
+              ? `${identification.event} (unknown to this demo)`
+              : identification.event;
     console.log(
-        `[webhook] ${eventName ?? "unrecognized payload"} ` +
+        `[webhook] ${label} ` +
             `id=${readHeader(headers, "id") ?? "unknown"} ` +
             `timestamp=${describeTimestamp(readHeader(headers, "timestamp"))} ` +
             `signature=${signature}`,
     );
     console.log(JSON.stringify(payload, null, 2));
-    if (eventName === null) {
+    if (identification.kind !== "known") {
         console.warn(
-            "[webhook] This payload matches no event shape this demo knows. " +
-                "Kick may have added an event; see shared/src/schemas/webhook-event.schema.ts.",
+            "[webhook] This delivery is not an event this demo knows. " +
+                "Kick may have added or reshaped an event; see shared/src/schemas/webhook-event.schema.ts.",
         );
     }
 }

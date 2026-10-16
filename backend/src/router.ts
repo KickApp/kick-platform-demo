@@ -121,6 +121,49 @@ export const platformRouter = s.router(platformContract, {
             return forwardUpstreamError(result);
         },
     },
+    financialAccounts: {
+        list: async ({ params, query }) => {
+            const result = await kickClient.financialAccounts.list({
+                params,
+                query,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        update: async ({ params, body }) => {
+            const result = await kickClient.financialAccounts.update({
+                params,
+                body,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        move: async ({ params, body }) => {
+            const result = await kickClient.financialAccounts.move({
+                params,
+                body,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        // The upstream 200 carries no body, so neither does this one.
+        delete: async ({ params, query }) => {
+            const result = await kickClient.financialAccounts.delete({
+                params,
+                query,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: undefined };
+            }
+            return forwardUpstreamError(result);
+        },
+    },
     chartOfAccounts: {
         list: async ({ params, query }) => {
             const result = await kickClient.chartOfAccounts.list({
@@ -422,6 +465,22 @@ export const platformRouter = s.router(platformContract, {
                 params,
                 query,
             });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+    },
+    locks: {
+        list: async ({ query }) => {
+            const result = await kickClient.locks.list({ query });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        set: async ({ body }) => {
+            const result = await kickClient.locks.set({ body });
             if (result.status === 200) {
                 return { status: 200, body: result.body };
             }

@@ -4,7 +4,9 @@ import { WorkspaceAccountGroupsPage } from "./pages/WorkspaceAccountGroupsPage";
 import { WorkspaceAccountingMigrationPage } from "./pages/WorkspaceAccountingMigrationPage";
 import { WorkspaceChartOfAccountsPage } from "./pages/WorkspaceChartOfAccountsPage";
 import { WorkspaceEntitiesPage } from "./pages/WorkspaceEntitiesPage";
+import { WorkspaceFinancialAccountsPage } from "./pages/WorkspaceFinancialAccountsPage";
 import { WorkspaceLayout } from "./pages/WorkspaceLayout";
+import { WorkspaceLocksPage } from "./pages/WorkspaceLocksPage";
 import { WorkspaceOpeningBalancesPage } from "./pages/WorkspaceOpeningBalancesPage";
 import { WorkspacePlaidConnectionsPage } from "./pages/WorkspacePlaidConnectionsPage";
 import { WorkspaceReportsPage } from "./pages/WorkspaceReportsPage";
@@ -20,8 +22,9 @@ export function App() {
                 </Link>
                 <span className="app-subtitle">
                     Workspaces, entities, the chart of accounts, account groups,
-                    opening balances, Plaid connections, transactions,
-                    accounting migrations &amp; reports via the Platform API
+                    opening balances, Plaid connections, financial accounts,
+                    transactions, locks, accounting migrations &amp; reports via
+                    the Platform API
                 </span>
             </header>
             <main className="app-main">
@@ -60,9 +63,14 @@ export function App() {
                             element={<WorkspacePlaidConnectionsPage />}
                         />
                         <Route
+                            path="financial-accounts"
+                            element={<WorkspaceFinancialAccountsPage />}
+                        />
+                        <Route
                             path="transactions"
                             element={<WorkspaceTransactionsPage />}
                         />
+                        <Route path="locks" element={<WorkspaceLocksPage />} />
                         <Route
                             path="migration"
                             element={<WorkspaceAccountingMigrationPage />}

@@ -13,9 +13,12 @@ import {
     type PlatformBulkSetOpeningBalancesBody,
     type PlatformCreateAccountBody,
     type PlatformCreateAccountGroupBody,
+    type PlatformFinancialAccountUpdateBody,
+    type PlatformLock,
     type PlatformMergeAccountsBody,
     type PlatformOpeningBalanceAdjustmentSetBody,
     type PlatformOpeningBalanceSetBody,
+    type PlatformSetLockBody,
     type PlatformTransactionUpdateBody,
     type PlatformUpdateAccountBody,
     type PlatformUpdateAccountGroupBody,
@@ -167,6 +170,95 @@ export async function updateTransaction({
     });
     if (result.status === 200) {
         return result.body.transaction;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchFinancialAccounts(query: {
+    workspaceId: string;
+    entityIds?: string[];
+    limit: number;
+    offset: number;
+}) {
+    const { workspaceId, ...rest } = query;
+    const result = await api.financialAccounts.list({
+        params: { workspaceId },
+        query: rest,
+    });
+    if (result.status === 200) {
+        return result.body;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Only the fields present in the body are touched; `null` clears a
+ * bookkeeping date. Changing either date regenerates the account's journal
+ * entries, and answers 409 when its reconciliations or opening balance block
+ * the change.
+ */
+export async function updateFinancialAccount({
+    workspaceId,
+    financialAccountId,
+    body,
+}: {
+    workspaceId: string;
+    financialAccountId: string;
+    body: PlatformFinancialAccountUpdateBody;
+}) {
+    const result = await api.financialAccounts.update({
+        params: { workspaceId, financialAccountId },
+        body,
+    });
+    if (result.status === 200) {
+        return result.body.financialAccount;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Moves the account, with its transactions, documents and accounting data, to
+ * another entity of the same workspace.
+ */
+export async function moveFinancialAccount({
+    workspaceId,
+    financialAccountId,
+    entityId,
+}: {
+    workspaceId: string;
+    financialAccountId: string;
+    entityId: string;
+}) {
+    const result = await api.financialAccounts.move({
+        params: { workspaceId, financialAccountId },
+        body: { entityId },
+    });
+    if (result.status === 200) {
+        return result.body.financialAccount;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Permanent, and takes the account's transactions with it. An account that
+ * manual journal entries post to answers 409 unless `forceDeletion` is set,
+ * which deletes those journal entries too.
+ */
+export async function deleteFinancialAccount({
+    workspaceId,
+    financialAccountId,
+    forceDeletion,
+}: {
+    workspaceId: string;
+    financialAccountId: string;
+    forceDeletion: boolean;
+}) {
+    const result = await api.financialAccounts.delete({
+        params: { workspaceId, financialAccountId },
+        query: forceDeletion ? { forceDeletion: "true" } : {},
+    });
+    if (result.status === 200) {
+        return;
     }
     throw toApiError(result);
 }
@@ -715,6 +807,43 @@ export async function fetchGeneralLedgerReport({
     });
     if (result.status === 200) {
         return result.body.report;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Unlocked entities are absent from the listing, so the Locks tab joins this
+ * against the workspace's entities rather than paging it on its own.
+ */
+export async function fetchAllWorkspaceLocks(
+    workspaceId: string,
+): Promise<PlatformLock[]> {
+    const locks: PlatformLock[] = [];
+    let offset = 0;
+    let total = 0;
+    do {
+        const result = await api.locks.list({
+            query: {
+                workspaceIds: [workspaceId],
+                limit: PLATFORM_PAGE_LIMIT_MAX,
+                offset,
+            },
+        });
+        if (result.status !== 200) {
+            throw toApiError(result);
+        }
+        locks.push(...result.body.data);
+        total = result.body.pagination.total;
+        offset += PLATFORM_PAGE_LIMIT_MAX;
+    } while (locks.length < total);
+    return locks;
+}
+
+/** A null `date` unlocks the entity. */
+export async function setEntityLock(body: PlatformSetLockBody) {
+    const result = await api.locks.set({ body });
+    if (result.status === 200) {
+        return result.body.lock;
     }
     throw toApiError(result);
 }
