@@ -276,11 +276,12 @@ the UI surfaces verbatim.
 
 ## Webhooks
 
-Kick reports things that happen outside an API call as webhooks — today only
-that a Plaid connection stopped syncing and the business owner has to reconnect
-it. This demo receives them at `POST /api/demo/v1/webhooks/kick` and does one
-thing with them: prints them. Nothing is stored and no resource is refetched, so
-no screen reacts to an incoming event.
+Kick reports things that happen outside an API call as webhooks — today that a
+Plaid connection stopped syncing and the business owner has to reconnect it,
+and that an entity's lock date changed. This demo receives them at
+`POST /api/demo/v1/webhooks/kick` and does one thing with them: prints them.
+Nothing is stored and no resource is refetched, so no screen reacts to an
+incoming event.
 
 Configure the endpoint URL and copy its `whsec_...` signing secret in the Kick
 app under **Organization → API → Webhooks → Open portal**, then set
@@ -290,7 +291,7 @@ reach the endpoint, so a local backend needs a public tunnel — e.g.
 `https://<subdomain>.ngrok.app/api/demo/v1/webhooks/kick`.
 
 Deliveries arrive [Svix-signed](https://docs.svix.com/receiving/verifying-payloads/how):
-the body is the bare event payload, and `svix-id`, `svix-timestamp` and
+the body is a JSON envelope, and `svix-id`, `svix-timestamp` and
 `svix-signature` headers (or their `webhook-` prefixed aliases) sign the raw
 request bytes. With the secret set, a delivery whose signature does not verify
 is answered `400`; without it deliveries are still logged, marked
@@ -300,30 +301,35 @@ point a real endpoint at.
 A logged delivery looks like this:
 
 ```
-[webhook] plaid.connection.disconnected id=msg_2hT8kQ timestamp=2026-08-11T07:20:00.000Z signature=verified
+[webhook] entity.lock_date.changed id=msg_2hT8kQ timestamp=2026-10-16T07:20:00.000Z signature=verified
 {
+  "event": "entity.lock_date.changed",
   "version": 1,
-  "connectionId": "6f1c...",
-  "workspaceId": "b0a2...",
-  "entityId": "48d9...",
-  "bankName": "Mercury",
-  "errorCode": "disconnected",
-  "occurredAt": 1786520400
+  "occurredAt": 1792142400,
+  "payload": {
+    "entityId": "48d9...",
+    "workspaceId": "b0a2...",
+    "date": "2026-09-30",
+    "previousDate": "2026-08-31"
+  }
 }
 ```
 
-The event name never crosses the wire: Kick sets it on the Svix message and
-sends the payload alone. The receiver therefore names an event by matching its
-shape against the schemas in `shared/src/schemas/webhook-event.schema.ts`. A
-payload matching none of them is logged as `unrecognized payload` and still
-answered `200` — that is what an event added upstream looks like from here.
+Every delivery carries the same envelope: `event` names it, `version` versions
+the envelope, `occurredAt` is Unix seconds and `payload` is the event's own
+shape. The receiver names a delivery by its `event` and checks the payload
+against the schemas in `shared/src/schemas/webhook-event.schema.ts`. An event
+the demo does not vendor (or whose payload no longer matches) is logged as
+`<event> (unknown to this demo)`, and a body that is not an envelope as
+`unrecognized payload`; both are still answered `200` — that is what an event
+added upstream looks like from here.
 
 With `KICK_WEBHOOK_SIGNING_SECRET` unset you can replay a delivery yourself:
 
 ```bash
 curl -s -X POST http://localhost:4001/api/demo/v1/webhooks/kick \
   -H 'Content-Type: application/json' \
-  -d '{"version":1,"connectionId":"'"$(uuidgen)"'","workspaceId":"'"$(uuidgen)"'","entityId":"'"$(uuidgen)"'","bankName":"Mercury","errorCode":"disconnected","occurredAt":1786520400}'
+  -d '{"event":"entity.lock_date.changed","version":1,"occurredAt":1792142400,"payload":{"entityId":"'"$(uuidgen)"'","workspaceId":"'"$(uuidgen)"'","date":"2026-09-30","previousDate":null}}'
 ```
 
 ## Managing the chart of accounts

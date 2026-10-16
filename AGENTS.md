@@ -175,14 +175,15 @@ Three constraints hold it together:
    `index.ts` is fine; moving the JSON parser back to the top is not.
 2. **It is not a ts-rest route.** Validating the body against a contract would
    reject an event Kick adds later, which is the opposite of logging whatever
-   arrives. Deliveries with an unknown payload shape are logged as
-   `unrecognized payload` and answered `200`.
-3. **Kick sends the payload with no envelope**, and the event name lives only on
-   the Svix message, so `identifyKickWebhookEvent` in
-   `shared/src/schemas/webhook-event.schema.ts` names an event by matching its
-   shape. Adding a new event means vendoring its payload schema there and
-   listing it in `KICK_WEBHOOK_EVENTS`; two events with structurally
-   indistinguishable payloads would need a real discriminator.
+   arrives. Deliveries for an event the demo does not vendor are logged as
+   `<event> (unknown to this demo)`, bodies that are not an envelope as
+   `unrecognized payload`, and both are answered `200`.
+3. **Every delivery is wrapped in an envelope**,
+   `{ event, version, occurredAt, payload }`, so `identifyKickWebhookEvent` in
+   `shared/src/schemas/webhook-event.schema.ts` names an event by its `event`
+   field and then checks `payload` against the vendored schema. `version`
+   versions the envelope, not a single event. Adding a new event means
+   vendoring its payload schema there and listing it in `KICK_WEBHOOK_EVENTS`.
 
 Signature verification uses the `svix` package with
 `KICK_WEBHOOK_SIGNING_SECRET`, per-endpoint and rotatable in Kick's portal.
