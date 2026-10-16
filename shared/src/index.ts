@@ -6,6 +6,8 @@ export * from "./schemas/pagination.schema";
 export * from "./schemas/workspace.schema";
 export * from "./schemas/organization.schema";
 export * from "./schemas/entity.schema";
+export * from "./schemas/query.schema";
+export * from "./schemas/financial-account.schema";
 export * from "./schemas/plaid-connection.schema";
 export * from "./schemas/plaid-link.schema";
 export * from "./schemas/transaction.schema";

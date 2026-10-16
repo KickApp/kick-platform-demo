@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { uuidArrayQueryParamSchema } from "./query.schema";
 
 /**
  * Wire shapes of the Platform API's financial reports.
@@ -66,17 +67,6 @@ export const platformReportQuerySchema = z.object({
 });
 
 export type PlatformReportQuery = z.infer<typeof platformReportQuerySchema>;
-
-/**
- * A single value and a repeated (or indexed) query param both normalize to an
- * array; an empty value reads as "filter not provided".
- */
-const uuidArrayQueryParamSchema = z.preprocess((value) => {
-    if (value === undefined || value === null || value === "") {
-        return undefined;
-    }
-    return Array.isArray(value) ? value : [value];
-}, z.array(z.string().uuid()).min(1).optional());
 
 /**
  * The general ledger lists individual dated postings rather than period

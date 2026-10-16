@@ -37,9 +37,14 @@ export function WorkspacePlaidConnectionsPage() {
     const deleteMutation = useMutation({
         mutationFn: deletePlaidConnection,
         onSuccess: async () => {
-            await queryClient.invalidateQueries({
-                queryKey: ["plaidConnections", workspaceId],
-            });
+            await Promise.all([
+                queryClient.invalidateQueries({
+                    queryKey: ["plaidConnections", workspaceId],
+                }),
+                queryClient.invalidateQueries({
+                    queryKey: ["financialAccounts", workspaceId],
+                }),
+            ]);
         },
     });
 
