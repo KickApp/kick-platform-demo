@@ -11,7 +11,9 @@ import {
     type PlatformBulkCreateAccountsBody,
     type PlatformCreateAccountBody,
     type PlatformCreateAccountGroupBody,
+    type PlatformLock,
     type PlatformMergeAccountsBody,
+    type PlatformSetLockBody,
     type PlatformTransactionUpdateBody,
     type PlatformUpdateAccountBody,
     type PlatformUpdateAccountGroupBody,
@@ -576,6 +578,43 @@ export async function fetchGeneralLedgerReport({
     });
     if (result.status === 200) {
         return result.body.report;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Unlocked entities are absent from the listing, so the Locks tab joins this
+ * against the workspace's entities rather than paging it on its own.
+ */
+export async function fetchAllWorkspaceLocks(
+    workspaceId: string,
+): Promise<PlatformLock[]> {
+    const locks: PlatformLock[] = [];
+    let offset = 0;
+    let total = 0;
+    do {
+        const result = await api.locks.list({
+            query: {
+                workspaceIds: [workspaceId],
+                limit: PLATFORM_PAGE_LIMIT_MAX,
+                offset,
+            },
+        });
+        if (result.status !== 200) {
+            throw toApiError(result);
+        }
+        locks.push(...result.body.data);
+        total = result.body.pagination.total;
+        offset += PLATFORM_PAGE_LIMIT_MAX;
+    } while (locks.length < total);
+    return locks;
+}
+
+/** A null `date` unlocks the entity. */
+export async function setEntityLock(body: PlatformSetLockBody) {
+    const result = await api.locks.set({ body });
+    if (result.status === 200) {
+        return result.body.lock;
     }
     throw toApiError(result);
 }
