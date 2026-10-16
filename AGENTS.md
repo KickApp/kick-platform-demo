@@ -61,7 +61,7 @@ flows:
   `/platform/v1/entities/:entityId/account-groups`,
   `/platform/v1/entities/:entityId/accounting-migration`,
   `/platform/v1/entities/:entityId/journal-entries`,
-  `/platform/v1/entities/:entityId/reports/*`).
+  `/platform/v1/entities/:entityId/reports/*`, `/platform/v1/locks`).
 - The backend consumes it twice: `initClient` against Kick
   (`backend/src/kick-client.ts`) and `initServer`/`createExpressEndpoints`
   mounted under `/api` (`backend/src/router.ts`, `backend/src/index.ts`), so
@@ -73,7 +73,7 @@ flows:
 - Handlers are pure pass-through. Declared upstream errors
   (400/401/404/409/422/429) are forwarded verbatim; anything undeclared becomes
   a 502 via `UpstreamError`. Deleting a Plaid connection, updating a
-  transaction inside a locked bookkeeping period, deleting an account that has
+  transaction dated on or before the entity's lock date, deleting an account that has
   journal entries, a blocked account merge and the accounting-migration routes
   (a second migration, or triggering rule generation twice) answer 409 today;
   preparing categorization and generating migration transaction rules for an
@@ -219,9 +219,9 @@ the rollup to group them.
 
 ## Vendored resources and deliberate gaps
 
-Ten resources are vendored: the organization, workspaces, entities, Plaid
-connections, transactions, the chart of accounts, account groups, accounting
-migrations, journal entries and reports. Some upstream routes are
+Eleven resources are vendored: the organization, workspaces, entities, Plaid
+connections, transactions, the chart of accounts, account groups, locks,
+accounting migrations, journal entries and reports. Some upstream routes are
 intentionally left out:
 
 - Workspaces: `list`, `create`, `get` and `update`. `create` requires a `plan`
@@ -270,6 +270,14 @@ intentionally left out:
   which is why the BFF sets a `qs` query parser with a raised `arrayLimit` in
   `backend/src/index.ts` — Express's default stops building an array past
   index 20.
+- Locks: both upstream routes, `list` and `set`. Unlike every other resource
+  they sit at the organization level rather than under a workspace or entity
+  path: `list` narrows by `workspaceIds` / `entityIds` query arrays (an id
+  outside the organization answers 400) and `set` is a `PUT` naming its entity
+  in the body, with a null `date` unlocking it. `list` leaves unlocked
+  entities out entirely, so the Locks tab drives its table off the
+  workspace's entities and reads a missing lock as unlocked rather than
+  paging the lock listing on its own.
 - Plaid: the Platform API's `create` takes a `processor_token` and has no
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is

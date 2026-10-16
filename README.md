@@ -3,15 +3,17 @@
 Demo app for the [Kick](https://kick.co) Platform API: a React frontend and a
 small Express BFF backend covering the **organization**, **workspaces**,
 **entities**, **Plaid connections**, **transactions**, the **chart of
-accounts**, **account groups**, **accounting migrations** (with the **journal
-entries** they migrate) and **reports** through the external Platform API.
+accounts**, **account groups**, entity **locks**, **accounting migrations**
+(with the **journal entries** they migrate) and **reports** through the
+external Platform API.
 
-Opening a workspace gives seven tabs: manage its entities, manage an entity's
+Opening a workspace gives eight tabs: manage its entities, manage an entity's
 chart of accounts (create, rename, move between groups, archive, delete),
 manage the account groups arranging that chart into a hierarchy, manage the
 Plaid connections the partner created (list, connect through Plaid Link,
 delete), read the workspace's transactions across every entity and
-recategorize them, migrate an entity's historical books and generate
+recategorize them, lock or unlock each entity's books through a date (see
+[Locks](#locks)), migrate an entity's historical books and generate
 categorization rules from them (see
 [Accounting migration](#accounting-migration)), and read an entity's
 accounting reports. The backend also receives Kick's webhooks and logs them —
@@ -127,10 +129,24 @@ curl -s -X DELETE "http://localhost:4001/api/platform/v1/plaid-connections/<uuid
 # List transactions of a workspace within an inclusive date range
 curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions?startDate=2026-01-01&endDate=2026-01-31"
 
-# Categorize a transaction (null clears it; 409 inside a locked bookkeeping period)
+# Categorize a transaction (null clears it; 409 when dated on or before the entity's lock date)
 curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions/<uuid>" \
   -H "Content-Type: application/json" \
   -d '{"accountId": "<uuid>"}'
+
+# List the locks of a workspace's entities (unlocked entities are left out;
+# entityIds narrows further, and both filters take repeated params)
+curl -s "http://localhost:4001/api/platform/v1/locks?workspaceIds=<uuid>"
+
+# Lock an entity's books through a date, inclusive (fires entity.lock_date.changed)
+curl -s -X PUT "http://localhost:4001/api/platform/v1/locks" \
+  -H "Content-Type: application/json" \
+  -d '{"entityId": "<uuid>", "date": "2026-09-30"}'
+
+# Unlock an entity
+curl -s -X PUT "http://localhost:4001/api/platform/v1/locks" \
+  -H "Content-Type: application/json" \
+  -d '{"entityId": "<uuid>", "date": null}'
 
 # List an entity's chart of accounts (archived accounts included, flagged isDisabled)
 curl -s "http://localhost:4001/api/platform/v1/entities/<uuid>/chart-of-accounts?limit=100"
@@ -434,6 +450,18 @@ that rule generation clusters on the way bank descriptions cluster. The tab
 then polls the migration until the rules are seeded and lists the entity's
 manual journal entries underneath.
 
+## Locks
+
+An entity has at most one lock: a single date through which its books are
+closed, inclusive. Kick then refuses changes to the entity's transactions and
+journal entries dated on or before it — recategorizing such a transaction in
+the Transactions tab answers `409`. The Locks tab lists every entity of the
+workspace with its current lock date, and sets or clears it with
+`PUT /platform/v1/locks`. The lock listing spans the organization and leaves
+unlocked entities out, so the tab narrows it to the workspace and treats an
+entity without a lock as unlocked. Every change of the date fires the
+`entity.lock_date.changed` webhook (see [Webhooks](#webhooks)).
+
 ## Reports
 
 The Reports tab covers all five Platform API reports — profit and loss, balance
@@ -452,7 +480,7 @@ backend/   Express BFF: authenticates to Kick, passes requests/errors through,
            logs incoming webhooks
 frontend/  React app: workspaces list/create/change-plan, then per-workspace entities,
            chart of accounts, account groups, Plaid connections, transactions,
-           accounting migration and reports tabs
+           locks, accounting migration and reports tabs
 ```
 
 See [AGENTS.md](AGENTS.md) for a guide aimed at coding agents extending this
