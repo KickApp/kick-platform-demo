@@ -94,6 +94,16 @@ import {
     platformTransactionUpdateBodySchema,
 } from "../schemas/transaction.schema";
 import {
+    platformTasksListQuerySchema,
+    platformTasksListResponseSchema,
+    platformTasksPathParamsSchema,
+} from "../schemas/task.schema";
+import {
+    platformTaskGroupsListQuerySchema,
+    platformTaskGroupsListResponseSchema,
+    platformTaskGroupsPathParamsSchema,
+} from "../schemas/task-group.schema";
+import {
     createPlatformWorkspaceBodySchema,
     platformWorkspacePathParamsSchema,
     platformWorkspaceResponseSchema,
@@ -782,6 +792,44 @@ const locksContract = c.router(
     { pathPrefix: "/platform/v1/locks" },
 );
 
+/**
+ * Tasks are read-only on the Platform API: there is only a workspace-scoped
+ * listing. Tasks internal to another organization working on the same
+ * workspace are left out upstream.
+ */
+const tasksContract = c.router(
+    {
+        list: {
+            method: "GET",
+            path: "",
+            pathParams: platformTasksPathParamsSchema,
+            query: platformTasksListQuerySchema,
+            responses: {
+                200: platformTasksListResponseSchema,
+                ...errorResponses,
+            },
+        },
+    },
+    { pathPrefix: "/platform/v1/workspaces/:workspaceId/tasks" },
+);
+
+/** Task groups are read-only too: a workspace-scoped listing. */
+const taskGroupsContract = c.router(
+    {
+        list: {
+            method: "GET",
+            path: "",
+            pathParams: platformTaskGroupsPathParamsSchema,
+            query: platformTaskGroupsListQuerySchema,
+            responses: {
+                200: platformTaskGroupsListResponseSchema,
+                ...errorResponses,
+            },
+        },
+    },
+    { pathPrefix: "/platform/v1/workspaces/:workspaceId/task-groups" },
+);
+
 export const platformContract = c.router({
     organization: organizationContract,
     workspaces: workspacesContract,
@@ -796,4 +844,6 @@ export const platformContract = c.router({
     journalEntries: journalEntriesContract,
     reports: reportsContract,
     locks: locksContract,
+    tasks: tasksContract,
+    taskGroups: taskGroupsContract,
 });

@@ -63,7 +63,9 @@ flows:
   `/platform/v1/entities/:entityId/opening-balances`,
   `/platform/v1/entities/:entityId/accounting-migration`,
   `/platform/v1/entities/:entityId/journal-entries`,
-  `/platform/v1/entities/:entityId/reports/*`, `/platform/v1/locks`).
+  `/platform/v1/entities/:entityId/reports/*`, `/platform/v1/locks`,
+  `/platform/v1/workspaces/:workspaceId/tasks`,
+  `/platform/v1/workspaces/:workspaceId/task-groups`).
 - The backend consumes it twice: `initClient` against Kick
   (`backend/src/kick-client.ts`) and `initServer`/`createExpressEndpoints`
   mounted under `/api` (`backend/src/router.ts`, `backend/src/index.ts`), so
@@ -224,14 +226,16 @@ its type and never accepts it on a write, so a form offering types has to know
 the rollup to group them. The financial account types, sources, sync statuses
 and sync error codes in `financial-account.schema.ts` are enums to watch as
 well — the source list grows whenever Kick adds an integration, and the error
-codes whenever a provider gains a new way to break.
+codes whenever a provider gains a new way to break. `TASK_TYPES` in
+`task.schema.ts` is the fastest-moving of them all — Kick adds a task type
+with most new task-producing features — with `TASK_STATUSES` next to it.
 
 ## Vendored resources and deliberate gaps
 
-Thirteen resources are vendored: the organization, workspaces, entities, Plaid
+Fifteen resources are vendored: the organization, workspaces, entities, Plaid
 connections, financial accounts, transactions, the chart of accounts, account
-groups, opening balances, locks, accounting migrations, journal entries and
-reports. Some upstream routes are intentionally left out:
+groups, opening balances, locks, tasks, task groups, accounting migrations,
+journal entries and reports. Some upstream routes are intentionally left out:
 
 - Workspaces: `list`, `create`, `get` and `update`. `create` requires a `plan`
   and `update`'s body is `{ plan }` and nothing else — both mirror upstream,
@@ -320,11 +324,25 @@ reports. Some upstream routes are intentionally left out:
   entities out entirely, so the Locks tab drives its table off the
   workspace's entities and reads a missing lock as unlocked rather than
   paging the lock listing on its own.
+- Tasks and task groups: the whole upstream surface, which is one `list` each
+  under the workspace path — there is no `get` and no write. The task listing
+  is newest first and leaves out tasks internal to another organization on
+  the same workspace. The Tasks tab always asks for
+  `relations=assignee,completedBy` so user names come with the row (users
+  themselves are not vendored), and resolves entity and group names through
+  the workspace lookups (`useWorkspaceEntities`,
+  `useWorkspaceTaskGroups`). The `entities`/`createdBy` relations and the
+  `ids`, `assigneeIds`, `createdByIds`, `completedByIds`, `createdAt*` and
+  `completedAt*` filters are vendored for parity and curl use only. The
+  upstream "start on or before end" refine on the three date ranges is left
+  off the query schema like the other top-level refines; Kick's 400 explains
+  an inverted range. `isUnassigned` is the string `"true"`/`"false"`, and
+  with `assigneeIds` it adds unassigned tasks rather than narrowing.
 - Plaid: the Platform API's `create` takes a `processor_token` and has no
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is
   kept for parity and curl use.
-- Classes, ledgers and transaction rules are not vendored at all — the rules
+- Classes, ledgers, users and transaction rules are not vendored at all — the rules
   seeded by an accounting migration are only observable in the Kick app, not
   through this demo.
 

@@ -19,6 +19,8 @@ import {
     type PlatformOpeningBalanceAdjustmentSetBody,
     type PlatformOpeningBalanceSetBody,
     type PlatformSetLockBody,
+    type PlatformTaskGroupsListQuery,
+    type PlatformTasksListQuery,
     type PlatformTransactionUpdateBody,
     type PlatformUpdateAccountBody,
     type PlatformUpdateAccountGroupBody,
@@ -844,6 +846,31 @@ export async function setEntityLock(body: PlatformSetLockBody) {
     const result = await api.locks.set({ body });
     if (result.status === 200) {
         return result.body.lock;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchTasks({
+    workspaceId,
+    ...query
+}: { workspaceId: string } & PlatformTasksListQuery) {
+    const result = await api.tasks.list({ params: { workspaceId }, query });
+    if (result.status === 200) {
+        return result.body;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchTaskGroups({
+    workspaceId,
+    ...query
+}: { workspaceId: string } & PlatformTaskGroupsListQuery) {
+    const result = await api.taskGroups.list({
+        params: { workspaceId },
+        query,
+    });
+    if (result.status === 200) {
+        return result.body;
     }
     throw toApiError(result);
 }

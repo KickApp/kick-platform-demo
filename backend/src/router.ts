@@ -487,4 +487,25 @@ export const platformRouter = s.router(platformContract, {
             return forwardUpstreamError(result);
         },
     },
+    tasks: {
+        list: async ({ params, query }) => {
+            const result = await kickClient.tasks.list({ params, query });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+    },
+    taskGroups: {
+        list: async ({ params, query }) => {
+            const result = await kickClient.taskGroups.list({
+                params,
+                query,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+    },
 });
