@@ -94,6 +94,26 @@ import {
     platformTransactionUpdateBodySchema,
 } from "../schemas/transaction.schema";
 import {
+    platformTaskPathParamsSchema,
+    platformTaskRelationsQuerySchema,
+    platformTaskResponseSchema,
+    platformTasksListQuerySchema,
+    platformTasksListResponseSchema,
+    platformTasksPathParamsSchema,
+} from "../schemas/task.schema";
+import {
+    platformCreateTaskMessageBodySchema,
+    platformTaskMessageResponseSchema,
+    platformTaskMessagesListQuerySchema,
+    platformTaskMessagesListResponseSchema,
+    platformTaskMessagesPathParamsSchema,
+} from "../schemas/task-message.schema";
+import {
+    platformTaskGroupsListQuerySchema,
+    platformTaskGroupsListResponseSchema,
+    platformTaskGroupsPathParamsSchema,
+} from "../schemas/task-group.schema";
+import {
     createPlatformWorkspaceBodySchema,
     platformWorkspacePathParamsSchema,
     platformWorkspaceResponseSchema,
@@ -782,6 +802,74 @@ const locksContract = c.router(
     { pathPrefix: "/platform/v1/locks" },
 );
 
+/**
+ * Tasks themselves are read-only on the Platform API; the one write is posting
+ * a message to a task's thread. Tasks internal to another organization working
+ * on the same workspace are left out upstream and read as 404.
+ */
+const tasksContract = c.router(
+    {
+        list: {
+            method: "GET",
+            path: "",
+            pathParams: platformTasksPathParamsSchema,
+            query: platformTasksListQuerySchema,
+            responses: {
+                200: platformTasksListResponseSchema,
+                ...errorResponses,
+            },
+        },
+        get: {
+            method: "GET",
+            path: "/:taskId",
+            pathParams: platformTaskPathParamsSchema,
+            query: platformTaskRelationsQuerySchema,
+            responses: {
+                200: platformTaskResponseSchema,
+                ...errorResponses,
+            },
+        },
+        listMessages: {
+            method: "GET",
+            path: "/:taskId/messages",
+            pathParams: platformTaskMessagesPathParamsSchema,
+            query: platformTaskMessagesListQuerySchema,
+            responses: {
+                200: platformTaskMessagesListResponseSchema,
+                ...errorResponses,
+            },
+        },
+        createMessage: {
+            method: "POST",
+            path: "/:taskId/messages",
+            pathParams: platformTaskMessagesPathParamsSchema,
+            body: platformCreateTaskMessageBodySchema,
+            responses: {
+                201: platformTaskMessageResponseSchema,
+                ...errorResponses,
+            },
+        },
+    },
+    { pathPrefix: "/platform/v1/workspaces/:workspaceId/tasks" },
+);
+
+/** Task groups are read-only too: a workspace-scoped listing. */
+const taskGroupsContract = c.router(
+    {
+        list: {
+            method: "GET",
+            path: "",
+            pathParams: platformTaskGroupsPathParamsSchema,
+            query: platformTaskGroupsListQuerySchema,
+            responses: {
+                200: platformTaskGroupsListResponseSchema,
+                ...errorResponses,
+            },
+        },
+    },
+    { pathPrefix: "/platform/v1/workspaces/:workspaceId/task-groups" },
+);
+
 export const platformContract = c.router({
     organization: organizationContract,
     workspaces: workspacesContract,
@@ -796,4 +884,6 @@ export const platformContract = c.router({
     journalEntries: journalEntriesContract,
     reports: reportsContract,
     locks: locksContract,
+    tasks: tasksContract,
+    taskGroups: taskGroupsContract,
 });

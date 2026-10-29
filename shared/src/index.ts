@@ -18,5 +18,8 @@ export * from "./schemas/accounting-migration.schema";
 export * from "./schemas/accounting-migration-run.schema";
 export * from "./schemas/journal-entry.schema";
 export * from "./schemas/lock.schema";
+export * from "./schemas/task.schema";
+export * from "./schemas/task-message.schema";
+export * from "./schemas/task-group.schema";
 export * from "./schemas/report.schema";
 export * from "./schemas/webhook-event.schema";

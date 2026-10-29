@@ -591,3 +591,61 @@ textarea:focus {
     color: var(--text-muted);
     font-size: 13px;
 }
+
+.summary-value-text {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.task-description {
+    margin: 0 0 20px;
+    white-space: pre-wrap;
+}
+
+.message-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.message {
+    padding: 12px 14px;
+}
+
+.message-reply {
+    margin-left: 32px;
+}
+
+.message-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    font-size: 13px;
+}
+
+.message-author {
+    font-weight: 600;
+}
+
+.message-time {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.message-body {
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+.message-deleted {
+    margin: 0;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.task-section {
+    margin-top: 28px;
+}

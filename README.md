@@ -4,10 +4,11 @@ Demo app for the [Kick](https://kick.co) Platform API: a React frontend and a
 small Express BFF backend covering the **organization**, **workspaces**,
 **entities**, **Plaid connections**, **financial accounts**, **transactions**,
 the **chart of accounts**, **account groups**, **opening balances**, entity
-**locks**, **accounting migrations** (with the **journal entries** they migrate)
-and **reports** through the external Platform API.
+**locks**, **tasks** and **task groups**, **accounting migrations** (with the
+**journal entries** they migrate) and **reports** through the external Platform
+API.
 
-Opening a workspace gives ten tabs: manage its entities, manage an entity's
+Opening a workspace gives twelve tabs: manage its entities, manage an entity's
 chart of accounts (create, rename, move between groups, archive, delete),
 manage the account groups arranging that chart into a hierarchy, set the
 accounts' opening balances and adjustments (see
@@ -16,7 +17,9 @@ partner created (list, connect through Plaid Link, delete), manage the
 workspace's financial accounts of every source (rename, change bookkeeping
 dates, move to another entity, delete — see
 [Financial accounts](#financial-accounts)), read the workspace's transactions
-across every entity and recategorize them, lock or unlock each entity's books
+across every entity and recategorize them, read the workspace's tasks, the
+transactions they cover and their message threads, post to those threads, and
+read the task groups (see [Tasks](#tasks)), lock or unlock each entity's books
 through a date (see [Locks](#locks)), migrate an entity's historical books and
 generate categorization rules from them (see
 [Accounting migration](#accounting-migration)), and read an entity's
@@ -158,6 +161,28 @@ curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions?st
 curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions/<uuid>" \
   -H "Content-Type: application/json" \
   -d '{"accountId": "<uuid>"}'
+
+# List a workspace's open tasks, newest first, with the assignee expanded
+# (multi-choice filters take repeated params)
+curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/tasks?statuses=todo&statuses=in_progress&relations=assignee"
+
+# Retrieve one task with every relation expanded (metadata.transactionIds lists
+# the transactions it covers, null for task types that reference none)
+curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/tasks/<uuid>?relations=entities&relations=assignee&relations=createdBy&relations=completedBy"
+
+# Fetch specific transactions by id (at most 100)
+curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions?ids=<uuid>&ids=<uuid>"
+
+# List a task's thread messages, oldest first, with their authors
+curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/tasks/<uuid>/messages?relations=author"
+
+# Post a message to a task's thread (visibility: shared, the default, or internal)
+curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces/<uuid>/tasks/<uuid>/messages" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Receipts uploaded, ready for review.", "visibility": "internal"}'
+
+# List the task groups available to a workspace's tasks, sorted by name
+curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/task-groups?scopes=workspace&scopes=organization"
 
 # List the locks of a workspace's entities (unlocked entities are left out;
 # entityIds narrows further, and both filters take repeated params)
@@ -585,6 +610,36 @@ unlocked entities out, so the tab narrows it to the workspace and treats an
 entity without a lock as unlocked. Every change of the date fires the
 `entity.lock_date.changed` webhook (see [Webhooks](#webhooks)).
 
+## Tasks
+
+Tasks and task groups are read-only on the Platform API. The one write is
+posting a message to a task's thread. The Tasks tab lists the workspace's tasks
+newest first. It filters them by title, status, priority, type, task group,
+entity, due date range and whether they are unassigned. It requests the
+`assignee` and `completedBy` relations so user names arrive with each task, and
+resolves entity and group names from the workspace's entities and task groups.
+Tasks internal to another organization working on the same workspace never
+appear.
+
+Clicking a task opens its page, which shows:
+
+- The task's details, read with `GET .../tasks/:taskId`.
+- The transactions the task covers, for types that reference transactions.
+  They come from `metadata.transactionIds` and are read back through the
+  transactions listing's `ids` filter.
+- The task's message thread, oldest first, with replies nested under the
+  message they answer and deleted messages shown as such.
+
+A form under the thread posts a plain-text message to its main timeline,
+either `shared` with everyone working on the task or `internal` to your
+organization. Platform API messages have no author, and Kick shows them under a
+Platform API label.
+
+The Task groups tab lists the groups a task can belong to — global ones shared
+by every workspace, the workspace's own and the organization's — sorted by
+name, with a scope filter and a search on the name. `isSystem` groups are
+managed by Kick.
+
 ## Reports
 
 The Reports tab covers all five Platform API reports — profit and loss, balance
@@ -603,8 +658,8 @@ backend/   Express BFF: authenticates to Kick, passes requests/errors through,
            logs incoming webhooks
 frontend/  React app: workspaces list/create/change-plan, then per-workspace entities,
            chart of accounts, account groups, opening balances, Plaid connections,
-           financial accounts, transactions, locks, accounting migration and
-           reports tabs
+           financial accounts, transactions, tasks, task groups, locks,
+           accounting migration and reports tabs
 ```
 
 See [AGENTS.md](AGENTS.md) for a guide aimed at coding agents extending this
