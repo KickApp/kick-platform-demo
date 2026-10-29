@@ -34,15 +34,10 @@ export function TaskTransactions({
         enabled: requestedIds.length > 0,
     });
 
-    // A Kick deployment that predates the `ids` filter ignores it and answers
-    // with the first page of every transaction, so keep only the asked-for ones.
-    const requested = new Set(requestedIds);
-    const transactions = (transactionsQuery.data?.data ?? []).filter(
-        (transaction) => requested.has(transaction.id),
-    );
+    const transactions = transactionsQuery.data?.data ?? [];
 
     return (
-        <section>
+        <section className="task-section">
             <div className="page-header">
                 <div>
                     <h3 className="section-title">Transactions</h3>

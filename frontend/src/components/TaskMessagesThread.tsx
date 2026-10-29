@@ -122,7 +122,7 @@ export function TaskMessagesThread({
     }
 
     return (
-        <section>
+        <section className="task-section">
             <div className="page-header">
                 <div>
                     <h3 className="section-title">Messages</h3>

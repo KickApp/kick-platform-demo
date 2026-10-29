@@ -645,3 +645,7 @@ textarea:focus {
     color: var(--text-muted);
     font-style: italic;
 }
+
+.task-section {
+    margin-top: 28px;
+}

@@ -348,9 +348,8 @@ journal entries and reports. Some upstream routes are intentionally left out:
     reference transactions, and the page then hides its Transactions section.
     It is empty when the task selects transactions by other criteria. The
     page reads those transactions back through the transactions listing's
-    `ids` filter (at most 100) and keeps only the requested rows client-side,
-    because a Kick deployment that predates the filter ignores it and returns
-    the first page of everything.
+    `ids` filter, at most 100. Ids that don't match a visible transaction are
+    dropped rather than rejected, so the table can be shorter than the count.
 
     The thread is oldest first, with replies interleaved by time. The page
     nests replies under a parent on the same page and flags replies whose
