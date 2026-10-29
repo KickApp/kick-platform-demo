@@ -19,7 +19,10 @@ import {
     type PlatformOpeningBalanceAdjustmentSetBody,
     type PlatformOpeningBalanceSetBody,
     type PlatformSetLockBody,
+    type PlatformCreateTaskMessageBody,
     type PlatformTaskGroupsListQuery,
+    type PlatformTaskMessagesListQuery,
+    type PlatformTaskRelationsQuery,
     type PlatformTasksListQuery,
     type PlatformTransactionUpdateBody,
     type PlatformUpdateAccountBody,
@@ -139,6 +142,7 @@ export async function fetchTransactions(query: {
     workspaceId: string;
     startDate?: string;
     endDate?: string;
+    ids?: string[];
     limit: number;
     offset: number;
 }) {
@@ -857,6 +861,62 @@ export async function fetchTasks({
     const result = await api.tasks.list({ params: { workspaceId }, query });
     if (result.status === 200) {
         return result.body;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchTask({
+    workspaceId,
+    taskId,
+    ...query
+}: {
+    workspaceId: string;
+    taskId: string;
+} & PlatformTaskRelationsQuery) {
+    const result = await api.tasks.get({
+        params: { workspaceId, taskId },
+        query,
+    });
+    if (result.status === 200) {
+        return result.body.task;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchTaskMessages({
+    workspaceId,
+    taskId,
+    ...query
+}: {
+    workspaceId: string;
+    taskId: string;
+} & PlatformTaskMessagesListQuery) {
+    const result = await api.tasks.listMessages({
+        params: { workspaceId, taskId },
+        query,
+    });
+    if (result.status === 200) {
+        return result.body;
+    }
+    throw toApiError(result);
+}
+
+/** Posts to the main timeline of the thread, labelled as the Platform API. */
+export async function createTaskMessage({
+    workspaceId,
+    taskId,
+    body,
+}: {
+    workspaceId: string;
+    taskId: string;
+    body: PlatformCreateTaskMessageBody;
+}) {
+    const result = await api.tasks.createMessage({
+        params: { workspaceId, taskId },
+        body,
+    });
+    if (result.status === 201) {
+        return result.body.message;
     }
     throw toApiError(result);
 }

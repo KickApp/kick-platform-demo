@@ -134,6 +134,18 @@ export const platformUserIdentitySchema = z.object({
 export type PlatformUserIdentity = z.infer<typeof platformUserIdentitySchema>;
 
 /**
+ * Extra details about a task; Kick may add fields over time. `transactionIds`
+ * is null for task types that don't reference transactions, and empty when a
+ * `transactions` / `transaction_review` task selects its transactions by other
+ * criteria or none of them remain.
+ */
+export const platformTaskMetadataSchema = z.object({
+    transactionIds: z.array(z.string().uuid()).nullable(),
+});
+
+export type PlatformTaskMetadata = z.infer<typeof platformTaskMetadataSchema>;
+
+/**
  * Wire shape of a Platform API task. `dueDate` is a calendar day
  * (YYYY-MM-DD); timestamps are ISO-8601 strings. `completedById` /
  * `completedAt` record who last marked the task as done. The expanded
@@ -156,6 +168,7 @@ export const platformTaskSchema = z.object({
     completedAt: z.string().nullable(),
     createdAt: z.string(),
     updatedAt: z.string(),
+    metadata: platformTaskMetadataSchema,
     entities: z.array(platformEntitySchema).optional(),
     assignee: platformUserIdentitySchema.nullable().optional(),
     createdBy: platformUserIdentitySchema.nullable().optional(),
@@ -173,21 +186,46 @@ export const TASK_RELATIONS = [
 
 export type TaskRelation = (typeof TASK_RELATIONS)[number];
 
+const taskRelationsQueryParamSchema = arrayQueryParamSchema(
+    z.enum(TASK_RELATIONS),
+);
+
 export const platformTasksPathParamsSchema = z.object({
     workspaceId: z.string().uuid(),
 });
 
+export const platformTaskPathParamsSchema =
+    platformTasksPathParamsSchema.extend({
+        taskId: z.string().uuid(),
+    });
+
+export const platformTaskRelationsQuerySchema = z.object({
+    relations: taskRelationsQueryParamSchema,
+});
+
+export type PlatformTaskRelationsQuery = z.infer<
+    typeof platformTaskRelationsQuerySchema
+>;
+
+export const platformTaskResponseSchema = z.object({
+    task: platformTaskSchema,
+});
+
+export type PlatformTaskResponse = z.infer<typeof platformTaskResponseSchema>;
+
 /**
- * Tasks are listed newest first. Date ranges are inclusive calendar days, and
+ * Tasks are listed newest first. Date ranges are inclusive calendar days —
+ * `createdAt*` / `completedAt*` in the workspace's timezone — and
  * `isUnassigned=true` combined with `assigneeIds` adds unassigned tasks to the
  * selection rather than narrowing it.
  */
 export const platformTasksListQuerySchema =
     platformPaginationQuerySchema.extend({
-        relations: arrayQueryParamSchema(z.enum(TASK_RELATIONS)),
+        relations: taskRelationsQueryParamSchema,
         ids: uuidArrayQueryParamSchema,
         statuses: arrayQueryParamSchema(taskStatusSchema),
         priorities: arrayQueryParamSchema(taskPrioritySchema),
+        types: arrayQueryParamSchema(taskTypeSchema),
         groupIds: uuidArrayQueryParamSchema,
         entityIds: uuidArrayQueryParamSchema,
         assigneeIds: uuidArrayQueryParamSchema,

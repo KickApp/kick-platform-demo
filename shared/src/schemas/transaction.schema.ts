@@ -3,6 +3,7 @@ import {
     platformPaginationQuerySchema,
     platformPaginationSchema,
 } from "./pagination.schema";
+import { uuidArrayQueryParamSchema } from "./query.schema";
 
 /**
  * Provenance of a transaction, i.e. where the Platform API sourced it from.
@@ -77,11 +78,16 @@ export const platformTransactionPathParamsSchema =
         transactionId: z.string().uuid(),
     });
 
-/** `startDate`/`endDate` are inclusive calendar days. */
+/**
+ * `startDate`/`endDate` are inclusive calendar days. `ids` fetches specific
+ * transactions, at most 100 per request; ids that don't match a visible
+ * transaction of the workspace are left out rather than rejected.
+ */
 export const platformTransactionsListQuerySchema =
     platformPaginationQuerySchema.extend({
         startDate: z.string().date().optional(),
         endDate: z.string().date().optional(),
+        ids: uuidArrayQueryParamSchema,
     });
 
 export type PlatformTransactionsListQuery = z.infer<

@@ -6,6 +6,7 @@ import {
     type PlatformUserIdentity,
     type TaskStatus,
 } from "@kick-demo/shared";
+import { Link } from "react-router";
 import { formatDate, formatDateTime } from "../lib/format";
 
 const STATUS_BADGE_CLASSES: Record<TaskStatus, string> = {
@@ -35,10 +36,20 @@ export function TaskRow({ task, entityName, taskGroupName }: TaskRowProps) {
     return (
         <tr>
             <td>
-                {task.title}
+                <Link className="row-link" to={task.id}>
+                    {task.title}
+                </Link>
                 {task.description !== null && task.description !== "" && (
                     <span className="cell-meta">{task.description}</span>
                 )}
+                {task.metadata.transactionIds !== null &&
+                    task.metadata.transactionIds.length > 0 && (
+                        <span className="cell-meta">
+                            {task.metadata.transactionIds.length === 1
+                                ? "1 transaction"
+                                : `${task.metadata.transactionIds.length} transactions`}
+                        </span>
+                    )}
             </td>
             <td>
                 <span className={STATUS_BADGE_CLASSES[task.status]}>

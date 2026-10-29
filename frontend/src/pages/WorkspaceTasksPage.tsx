@@ -5,9 +5,12 @@ import {
     TASK_PRIORITY_LABELS,
     TASK_STATUSES,
     TASK_STATUS_LABELS,
+    TASK_TYPES,
+    TASK_TYPE_LABELS,
     type PlatformTasksListQuery,
     type TaskPriority,
     type TaskStatus,
+    type TaskType,
 } from "@kick-demo/shared";
 import { fetchTasks } from "../api/platform";
 import { Pagination } from "../components/Pagination";
@@ -27,6 +30,7 @@ const PAGE_SIZE = 25;
 interface TaskFilters {
     status: TaskStatus | "";
     priority: TaskPriority | "";
+    type: TaskType | "";
     groupId: string;
     entityId: string;
     isUnassigned: boolean;
@@ -37,6 +41,7 @@ interface TaskFilters {
 const NO_FILTERS: TaskFilters = {
     status: "",
     priority: "",
+    type: "",
     groupId: "",
     entityId: "",
     isUnassigned: false,
@@ -52,6 +57,10 @@ function isTaskPriority(value: string): value is TaskPriority {
     return TASK_PRIORITIES.some((priority) => priority === value);
 }
 
+function isTaskType(value: string): value is TaskType {
+    return TASK_TYPES.some((type) => type === value);
+}
+
 /**
  * The pickers choose one value each, which the API takes as a single-element
  * multi-choice filter. Empty pickers are left off the query entirely.
@@ -64,6 +73,7 @@ function toTasksQuery(
         relations: ["assignee", "completedBy"],
         ...(filters.status !== "" && { statuses: [filters.status] }),
         ...(filters.priority !== "" && { priorities: [filters.priority] }),
+        ...(filters.type !== "" && { types: [filters.type] }),
         ...(filters.groupId !== "" && { groupIds: [filters.groupId] }),
         ...(filters.entityId !== "" && { entityIds: [filters.entityId] }),
         ...(filters.isUnassigned && { isUnassigned: "true" }),
@@ -100,6 +110,7 @@ export function WorkspaceTasksPage() {
         searchInput !== "" ||
         filters.status !== "" ||
         filters.priority !== "" ||
+        filters.type !== "" ||
         filters.groupId !== "" ||
         filters.entityId !== "" ||
         filters.isUnassigned ||
@@ -167,6 +178,25 @@ export function WorkspaceTasksPage() {
                         {TASK_PRIORITIES.map((priority) => (
                             <option key={priority} value={priority}>
                                 {TASK_PRIORITY_LABELS[priority]}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <label className="field-inline">
+                    <span className="field-label">Type</span>
+                    <select
+                        value={filters.type}
+                        onChange={(event) => {
+                            const value = event.target.value;
+                            updateFilters({
+                                type: isTaskType(value) ? value : "",
+                            });
+                        }}
+                    >
+                        <option value="">Any type</option>
+                        {TASK_TYPES.map((type) => (
+                            <option key={type} value={type}>
+                                {TASK_TYPE_LABELS[type]}
                             </option>
                         ))}
                     </select>

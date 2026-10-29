@@ -261,7 +261,8 @@ journal entries and reports. Some upstream routes are intentionally left out:
   delete changes what other tabs read, so the row invalidates the
   transactions, chart-of-accounts, journal-entry and report queries too.
 - Transactions: `list` and `update`. The upstream `get` is not vendored — the
-  listing already carries the whole row.
+  listing already carries the whole row, and its `ids` filter is how the task
+  page fetches the transactions a task covers.
 - Chart of accounts: everything except `get`, for the same reason as
   transactions — the listing already carries the whole row. Note the asymmetry
   in the write surface: `update` renames and/or moves the account into an
@@ -324,20 +325,43 @@ journal entries and reports. Some upstream routes are intentionally left out:
   entities out entirely, so the Locks tab drives its table off the
   workspace's entities and reads a missing lock as unlocked rather than
   paging the lock listing on its own.
-- Tasks and task groups: the whole upstream surface, which is one `list` each
-  under the workspace path — there is no `get` and no write. The task listing
-  is newest first and leaves out tasks internal to another organization on
-  the same workspace. The Tasks tab always asks for
+- Tasks and task groups: the whole upstream surface. Task groups have only a
+  `list`. Tasks have `list`, `get`, `listMessages` and `createMessage` — the
+  task itself has no write, and posting to its thread is the one write. The
+  task listing is newest first and leaves out tasks internal to another
+  organization on the same workspace; `get` and both message routes answer
+  404 for those. The Tasks tab always asks for
   `relations=assignee,completedBy` so user names come with the row (users
   themselves are not vendored), and resolves entity and group names through
   the workspace lookups (`useWorkspaceEntities`,
-  `useWorkspaceTaskGroups`). The `entities`/`createdBy` relations and the
-  `ids`, `assigneeIds`, `createdByIds`, `completedByIds`, `createdAt*` and
-  `completedAt*` filters are vendored for parity and curl use only. The
-  upstream "start on or before end" refine on the three date ranges is left
-  off the query schema like the other top-level refines; Kick's 400 explains
-  an inverted range. `isUnassigned` is the string `"true"`/`"false"`, and
-  with `assigneeIds` it adds unassigned tasks rather than narrowing.
+  `useWorkspaceTaskGroups`). The `ids`, `assigneeIds`, `createdByIds`,
+  `completedByIds`, `createdAt*` and `completedAt*` filters are vendored for
+  parity and curl use only. The upstream "start on or before end" refine on
+  the three date ranges is left off the query schema like the other
+  top-level refines; Kick's 400 explains an inverted range. `isUnassigned` is
+  the string `"true"`/`"false"`, and with `assigneeIds` it adds unassigned
+  tasks rather than narrowing.
+
+    A task title opens the task page (`tasks/:taskId`), which calls `get` with
+    every relation. `metadata` is an object Kick may grow; only
+    `transactionIds` exists today. It is null for task types that don't
+    reference transactions, and the page then hides its Transactions section.
+    It is empty when the task selects transactions by other criteria. The
+    page reads those transactions back through the transactions listing's
+    `ids` filter (at most 100) and keeps only the requested rows client-side,
+    because a Kick deployment that predates the filter ignores it and returns
+    the first page of everything.
+
+    The thread is oldest first, with replies interleaved by time. The page
+    nests replies under a parent on the same page and flags replies whose
+    parent is on an earlier page. Deleted messages stay in the listing with a
+    null `content`. `authorId` is null both for system messages and for Platform
+    API posts, and the wire shape can't tell those apart, so the UI labels both
+    "System or Platform API". `createMessage` posts plain text to the main
+    timeline only — the API has no replies — with `visibility` `shared`
+    (default) or `internal` (the token's organization only). After posting, the
+    thread jumps to its last page, where the new message lands.
+
 - Plaid: the Platform API's `create` takes a `processor_token` and has no
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is

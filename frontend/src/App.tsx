@@ -11,6 +11,7 @@ import { WorkspaceOpeningBalancesPage } from "./pages/WorkspaceOpeningBalancesPa
 import { WorkspacePlaidConnectionsPage } from "./pages/WorkspacePlaidConnectionsPage";
 import { WorkspaceReportsPage } from "./pages/WorkspaceReportsPage";
 import { WorkspaceTaskGroupsPage } from "./pages/WorkspaceTaskGroupsPage";
+import { WorkspaceTaskPage } from "./pages/WorkspaceTaskPage";
 import { WorkspaceTasksPage } from "./pages/WorkspaceTasksPage";
 import { WorkspaceTransactionsPage } from "./pages/WorkspaceTransactionsPage";
 
@@ -73,6 +74,10 @@ export function App() {
                             element={<WorkspaceTransactionsPage />}
                         />
                         <Route path="tasks" element={<WorkspaceTasksPage />} />
+                        <Route
+                            path="tasks/:taskId"
+                            element={<WorkspaceTaskPage />}
+                        />
                         <Route
                             path="task-groups"
                             element={<WorkspaceTaskGroupsPage />}

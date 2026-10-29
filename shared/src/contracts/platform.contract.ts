@@ -94,10 +94,20 @@ import {
     platformTransactionUpdateBodySchema,
 } from "../schemas/transaction.schema";
 import {
+    platformTaskPathParamsSchema,
+    platformTaskRelationsQuerySchema,
+    platformTaskResponseSchema,
     platformTasksListQuerySchema,
     platformTasksListResponseSchema,
     platformTasksPathParamsSchema,
 } from "../schemas/task.schema";
+import {
+    platformCreateTaskMessageBodySchema,
+    platformTaskMessageResponseSchema,
+    platformTaskMessagesListQuerySchema,
+    platformTaskMessagesListResponseSchema,
+    platformTaskMessagesPathParamsSchema,
+} from "../schemas/task-message.schema";
 import {
     platformTaskGroupsListQuerySchema,
     platformTaskGroupsListResponseSchema,
@@ -793,9 +803,9 @@ const locksContract = c.router(
 );
 
 /**
- * Tasks are read-only on the Platform API: there is only a workspace-scoped
- * listing. Tasks internal to another organization working on the same
- * workspace are left out upstream.
+ * Tasks themselves are read-only on the Platform API; the one write is posting
+ * a message to a task's thread. Tasks internal to another organization working
+ * on the same workspace are left out upstream and read as 404.
  */
 const tasksContract = c.router(
     {
@@ -806,6 +816,36 @@ const tasksContract = c.router(
             query: platformTasksListQuerySchema,
             responses: {
                 200: platformTasksListResponseSchema,
+                ...errorResponses,
+            },
+        },
+        get: {
+            method: "GET",
+            path: "/:taskId",
+            pathParams: platformTaskPathParamsSchema,
+            query: platformTaskRelationsQuerySchema,
+            responses: {
+                200: platformTaskResponseSchema,
+                ...errorResponses,
+            },
+        },
+        listMessages: {
+            method: "GET",
+            path: "/:taskId/messages",
+            pathParams: platformTaskMessagesPathParamsSchema,
+            query: platformTaskMessagesListQuerySchema,
+            responses: {
+                200: platformTaskMessagesListResponseSchema,
+                ...errorResponses,
+            },
+        },
+        createMessage: {
+            method: "POST",
+            path: "/:taskId/messages",
+            pathParams: platformTaskMessagesPathParamsSchema,
+            body: platformCreateTaskMessageBodySchema,
+            responses: {
+                201: platformTaskMessageResponseSchema,
                 ...errorResponses,
             },
         },
