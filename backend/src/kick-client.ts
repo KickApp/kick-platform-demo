@@ -113,3 +113,31 @@ export function forwardUpstreamError(result: {
             throw new UpstreamError(result.status, result.body);
     }
 }
+
+type ForwardedErrorWithConflict<TConflict> =
+    | { status: 409; body: TConflict }
+    | { status: Exclude<ForwardedErrorStatus, 409>; body: ErrorMessage };
+
+/**
+ * Like {@link forwardUpstreamError}, but for routes whose 409 body carries
+ * more than `{ message }` (the account merge's blockers, the counterparty
+ * writes' `reason`): the 409 is relayed as parsed by `conflictSchema` instead
+ * of being flattened, so the caller can still act on the structured part.
+ */
+export function forwardConflictOrUpstreamError<TConflict>(
+    result: { status: number; body: unknown },
+    conflictSchema: z.ZodType<TConflict, z.ZodTypeDef, unknown>,
+): ForwardedErrorWithConflict<TConflict> {
+    if (result.status === 409) {
+        const parsedBody = conflictSchema.safeParse(result.body);
+        if (!parsedBody.success) {
+            throw new UpstreamError(result.status, result.body);
+        }
+        return { status: 409, body: parsedBody.data };
+    }
+    const forwarded = forwardUpstreamError(result);
+    if (forwarded.status === 409) {
+        throw new UpstreamError(result.status, result.body);
+    }
+    return { status: forwarded.status, body: forwarded.body };
+}
