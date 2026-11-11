@@ -13,6 +13,9 @@ import {
     type PlatformBulkSetOpeningBalancesBody,
     type PlatformCreateAccountBody,
     type PlatformCreateAccountGroupBody,
+    type PlatformCounterpartiesListQuery,
+    type PlatformCounterpartyMergeBody,
+    type PlatformCounterpartyUpdateBody,
     type PlatformFinancialAccountUpdateBody,
     type PlatformLock,
     type PlatformMergeAccountsBody,
@@ -30,7 +33,7 @@ import {
     type ReportGroupBy,
     type UpdatePlatformWorkspaceBody,
 } from "@kick-demo/shared";
-import { ApiError, toApiError } from "./errors";
+import { ApiError, CounterpartyConflictError, toApiError } from "./errors";
 
 /**
  * Client against the demo BFF, which mirrors the Kick Platform API contract
@@ -931,6 +934,129 @@ export async function fetchTaskGroups({
     });
     if (result.status === 200) {
         return result.body;
+    }
+    throw toApiError(result);
+}
+
+export async function fetchCounterparties({
+    workspaceId,
+    ...query
+}: { workspaceId: string } & PlatformCounterpartiesListQuery) {
+    const result = await api.counterparties.list({
+        params: { workspaceId },
+        query,
+    });
+    if (result.status === 200) {
+        return result.body;
+    }
+    throw toApiError(result);
+}
+
+/** Reads disabled counterparties too, unlike the default listing. */
+export async function fetchCounterparty({
+    workspaceId,
+    counterpartyId,
+}: {
+    workspaceId: string;
+    counterpartyId: string;
+}) {
+    const result = await api.counterparties.get({
+        params: { workspaceId, counterpartyId },
+    });
+    if (result.status === 200) {
+        return result.body.counterparty;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * A global counterparty answers 400; a name already taken in the workspace
+ * answers 409 `duplicate_name`.
+ */
+export async function updateCounterparty({
+    workspaceId,
+    counterpartyId,
+    body,
+}: {
+    workspaceId: string;
+    counterpartyId: string;
+    body: PlatformCounterpartyUpdateBody;
+}) {
+    const result = await api.counterparties.update({
+        params: { workspaceId, counterpartyId },
+        body,
+    });
+    if (result.status === 200) {
+        return result.body.counterparty;
+    }
+    if (result.status === 409) {
+        throw new CounterpartyConflictError(
+            result.body.message,
+            result.body.reason,
+        );
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Deletes a workspace counterparty, or removes a global one from the
+ * workspace. A blocked delete answers 409 with a `reason` saying which of the
+ * two flags, if any, gets it through.
+ */
+export async function deleteCounterparty({
+    workspaceId,
+    counterpartyId,
+    force,
+    disableInsteadOfDelete,
+}: {
+    workspaceId: string;
+    counterpartyId: string;
+    force: boolean;
+    disableInsteadOfDelete: boolean;
+}) {
+    const result = await api.counterparties.delete({
+        params: { workspaceId, counterpartyId },
+        query: {
+            ...(force && { force: "true" }),
+            ...(disableInsteadOfDelete && { disableInsteadOfDelete: "true" }),
+        },
+    });
+    if (result.status === 200) {
+        return;
+    }
+    if (result.status === 409) {
+        throw new CounterpartyConflictError(
+            result.body.message,
+            result.body.reason,
+        );
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Moves everything assigned to one counterparty onto another, then removes
+ * the first from the workspace. One used in a locked period answers 409
+ * `locked_transactions_found` unless `disableCounterpartyToMerge` is set.
+ */
+export async function mergeCounterparties({
+    workspaceId,
+    body,
+}: {
+    workspaceId: string;
+    body: PlatformCounterpartyMergeBody;
+}) {
+    const result = await api.counterparties.merge({
+        params: { workspaceId },
+        body,
+    });
+    if (result.status === 200) {
+        return;
+    }
+    if (result.status === 409) {
+        throw new CounterpartyConflictError(
+            result.body.message,
+            result.body.reason,
+        );
     }
     throw toApiError(result);
 }
