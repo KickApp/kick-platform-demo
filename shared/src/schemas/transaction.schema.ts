@@ -9,7 +9,7 @@ import { uuidArrayQueryParamSchema } from "./query.schema";
  * Provenance of a transaction, i.e. where the Platform API sourced it from.
  */
 export const TRANSACTION_TYPES = [
-    "external",
+    "plaid",
     "stripe",
     "imported",
     "ramp",
@@ -23,7 +23,7 @@ export const transactionTypeSchema = z.enum(TRANSACTION_TYPES);
 export type TransactionType = z.infer<typeof transactionTypeSchema>;
 
 export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
-    external: "Bank feed",
+    plaid: "Plaid",
     stripe: "Stripe",
     imported: "Imported",
     ramp: "Ramp",
