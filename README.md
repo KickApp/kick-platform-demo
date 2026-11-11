@@ -19,7 +19,7 @@ workspace's financial accounts of every source (rename, change bookkeeping
 dates, move to another entity, delete — see
 [Financial accounts](#financial-accounts)), read the workspace's transactions
 across every entity and recategorize them, manage the workspace's
-counterparties (edit, disable, delete, merge — see
+counterparties (create, edit, disable, delete, merge — see
 [Counterparties](#counterparties)), read the workspace's tasks, the
 transactions they cover and their message threads, post to those threads, and
 read the task groups (see [Tasks](#tasks)), lock or unlock each entity's books
@@ -168,6 +168,13 @@ curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transa
 # List a workspace's counterparties, closest matches first when searching
 # (disabled ones only with includeDisabled=true)
 curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties?search=acme&includeDisabled=true"
+
+# Create a counterparty: 201 when new, 200 when Kick resolved the name to a
+# global entry matching every field sent or to one it had detected; 409
+# duplicate_name when a verified counterparty has the name
+curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Acme Supplies", "email": "billing@acme.example", "directionOverride": "vendor"}'
 
 # Retrieve one counterparty (disabled ones included)
 curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties/<uuid>"
@@ -674,8 +681,21 @@ managed by Kick.
 The Counterparties tab lists the workspace's counterparty directory: the
 counterparties the workspace owns and the global Kick directory entries it
 uses. It searches by name and alias and can include disabled counterparties.
-The Platform API has no `create`, so counterparties only come from Kick itself
-(manual entry in the app, integrations, or detection from transactions).
+
+"Create counterparty" asks for a name and, optionally, a company name, email
+and vendor/customer override, then opens the counterparty's page. Kick
+resolves the name the way its app does, and the page says which outcome you
+got:
+
+- A new workspace counterparty (201).
+- A global Kick directory entry that matched every field you entered, which
+  the workspace now uses instead (200).
+- A counterparty Kick had already detected from transactions under that name,
+  now verified and updated with what you entered (200).
+
+A name that a verified counterparty already has is refused (409
+`duplicate_name`). The create route was added to the Platform API in
+kickapp/kick#17890; until that is deployed, creating answers 404.
 
 Clicking a counterparty opens its page, read with
 `GET .../counterparties/:counterpartyId`, where you can:

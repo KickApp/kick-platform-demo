@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchCounterparties } from "../api/platform";
 import { CounterpartyRow } from "../components/CounterpartyRow";
+import { CreateCounterpartyForm } from "../components/CreateCounterpartyForm";
 import { Pagination } from "../components/Pagination";
 import {
     EmptyMessage,
@@ -15,9 +16,7 @@ const PAGE_SIZE = 25;
 
 /**
  * The workspace's counterparty directory: its own counterparties plus the
- * global Kick entries it uses. The Platform API has no `create`, so
- * counterparties only arrive here from Kick (manual entry in the app,
- * integrations, or detection from transactions).
+ * global Kick entries it uses, with the form that creates one.
  */
 export function WorkspaceCounterpartiesPage() {
     const { workspaceId } = useWorkspaceContext();
@@ -25,6 +24,7 @@ export function WorkspaceCounterpartiesPage() {
     const [searchInput, setSearchInput] = useState("");
     const search = useDebouncedValue(searchInput.trim());
     const [includeDisabled, setIncludeDisabled] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
 
     const counterpartiesQuery = useQuery({
         queryKey: [
@@ -61,7 +61,25 @@ export function WorkspaceCounterpartiesPage() {
                         </p>
                     )}
                 </div>
+                {!isCreating && (
+                    <div className="row-actions">
+                        <button
+                            type="button"
+                            className="button button-primary"
+                            onClick={() => setIsCreating(true)}
+                        >
+                            Create counterparty
+                        </button>
+                    </div>
+                )}
             </div>
+
+            {isCreating && (
+                <CreateCounterpartyForm
+                    workspaceId={workspaceId}
+                    onDone={() => setIsCreating(false)}
+                />
+            )}
 
             <div className="filter-bar">
                 <label className="field-inline">
@@ -115,7 +133,7 @@ export function WorkspaceCounterpartiesPage() {
                     <EmptyMessage>
                         {hasFilters
                             ? "No counterparties match these filters."
-                            : "No counterparties in this workspace yet. Kick adds them as transactions come in."}
+                            : "No counterparties in this workspace yet. Create one, or let Kick add them as transactions come in."}
                     </EmptyMessage>
                 )}
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router";
+import { Link, useLocation, useParams } from "react-router";
 import { COUNTERPARTY_SOURCE_LABELS } from "@kick-demo/shared";
 import { fetchCounterparty } from "../api/platform";
 import { CounterpartyDeleteActions } from "../components/CounterpartyDeleteActions";
@@ -12,6 +12,10 @@ import {
     ErrorMessageBox,
     LoadingMessage,
 } from "../components/StatusMessage";
+import {
+    COUNTERPARTY_NOTICE_MESSAGES,
+    counterpartyNoticeStateSchema,
+} from "../lib/counterparty-notice";
 import { formatDateTime } from "../lib/format";
 import { useWorkspaceContext } from "../lib/workspace-context";
 
@@ -39,6 +43,7 @@ export function WorkspaceCounterpartyPage() {
     const { workspaceId } = useWorkspaceContext();
     const { counterpartyId } = useParams();
     const [isMerging, setIsMerging] = useState(false);
+    const notice = counterpartyNoticeStateSchema.safeParse(useLocation().state);
 
     const counterpartyQuery = useQuery({
         queryKey: ["counterparty", workspaceId, counterpartyId],
@@ -100,6 +105,16 @@ export function WorkspaceCounterpartyPage() {
                             />
                         </div>
                     </div>
+
+                    {notice.success && (
+                        <div className="status status-info">
+                            {
+                                COUNTERPARTY_NOTICE_MESSAGES[
+                                    notice.data.counterpartyNotice
+                                ]
+                            }
+                        </div>
+                    )}
 
                     <div className="card summary-card">
                         <SummaryItem label="Owner">

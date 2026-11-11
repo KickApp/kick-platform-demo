@@ -540,6 +540,19 @@ export const platformRouter = s.router(platformContract, {
     // The counterparty writes' 409 carries a `reason`, which
     // forwardUpstreamError would flatten to `{ message }`.
     counterparties: {
+        create: async ({ params, body }) => {
+            const result = await kickClient.counterparties.create({
+                params,
+                body,
+            });
+            if (result.status === 200 || result.status === 201) {
+                return { status: result.status, body: result.body };
+            }
+            return forwardConflictOrUpstreamError(
+                result,
+                platformCounterpartyConflictSchema,
+            );
+        },
         list: async ({ params, query }) => {
             const result = await kickClient.counterparties.list({
                 params,

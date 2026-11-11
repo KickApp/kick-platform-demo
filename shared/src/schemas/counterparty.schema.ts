@@ -215,6 +215,26 @@ export type PlatformCounterpartyUpdateBody = z.infer<
 >;
 
 /**
+ * The update fields minus `isDisabled`, with `name` required. Kick resolves
+ * the name like its app does: a global entry matching every field passed is
+ * reused (200, `isGlobal: true`), an unverified counterparty it detected
+ * under that name is verified and updated (200), anything else is created
+ * (201). A name a verified counterparty already has answers 409
+ * `duplicate_name`.
+ */
+export const platformCounterpartyCreateBodySchema =
+    platformCounterpartyUpdateBodySchema
+        .omit({ name: true, isDisabled: true })
+        .extend({
+            name: z.string().trim().min(1).max(COUNTERPARTY_TEXT_MAX_LENGTH),
+        })
+        .strict();
+
+export type PlatformCounterpartyCreateBody = z.infer<
+    typeof platformCounterpartyCreateBodySchema
+>;
+
+/**
  * `force=true` deletes a counterparty that transactions are assigned to,
  * leaving them without one. `disableInsteadOfDelete=true` disables a
  * counterparty that can't be deleted (used in a locked period, or linked to

@@ -14,6 +14,7 @@ import {
     type PlatformCreateAccountBody,
     type PlatformCreateAccountGroupBody,
     type PlatformCounterpartiesListQuery,
+    type PlatformCounterpartyCreateBody,
     type PlatformCounterpartyMergeBody,
     type PlatformCounterpartyUpdateBody,
     type PlatformFinancialAccountUpdateBody,
@@ -948,6 +949,38 @@ export async function fetchCounterparties({
     });
     if (result.status === 200) {
         return result.body;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * `isNew` is false when Kick resolved the name to a counterparty it already
+ * had — a matching global entry or one it had detected — instead of creating
+ * one; a name a verified counterparty already has answers 409
+ * `duplicate_name`.
+ */
+export async function createCounterparty({
+    workspaceId,
+    body,
+}: {
+    workspaceId: string;
+    body: PlatformCounterpartyCreateBody;
+}) {
+    const result = await api.counterparties.create({
+        params: { workspaceId },
+        body,
+    });
+    if (result.status === 200 || result.status === 201) {
+        return {
+            counterparty: result.body.counterparty,
+            isNew: result.status === 201,
+        };
+    }
+    if (result.status === 409) {
+        throw new CounterpartyConflictError(
+            result.body.message,
+            result.body.reason,
+        );
     }
     throw toApiError(result);
 }

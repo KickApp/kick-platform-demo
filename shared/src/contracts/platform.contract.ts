@@ -50,6 +50,7 @@ import {
     platformCounterpartiesListResponseSchema,
     platformCounterpartiesPathParamsSchema,
     platformCounterpartyConflictSchema,
+    platformCounterpartyCreateBodySchema,
     platformCounterpartyDeleteQuerySchema,
     platformCounterpartyMergeBodySchema,
     platformCounterpartyPathParamsSchema,
@@ -151,7 +152,7 @@ const c = initContract();
  * or an opening balance, deleting a financial account that manual journal
  * entries post to, deleting an opening balance of a reconciled bank account
  * and two concurrent opening balance writes to the same account, and blocked
- * counterparty updates, deletes and merges are the routes that actually answer
+ * counterparty creates, updates, deletes and merges are the routes that actually answer
  * 409 today; the account merge (structured blockers) and the counterparty
  * writes (a `reason`) are the ones whose 409 body is richer than plain
  * `{ message }`. Preparing categorization for an entity that is not on a
@@ -884,11 +885,24 @@ const taskGroupsContract = c.router(
 
 /**
  * Counterparties shown in a workspace's directory: its own, plus the global
- * Kick directory entries it uses. There is no upstream `create`. The three
- * writes answer 409 with a `reason` on top of `{ message }`.
+ * Kick directory entries it uses. `create` answers 201 for a new counterparty
+ * and 200 when Kick resolved the name to one it already had. The four writes
+ * answer 409 with a `reason` on top of `{ message }`.
  */
 const counterpartiesContract = c.router(
     {
+        create: {
+            method: "POST",
+            path: "",
+            pathParams: platformCounterpartiesPathParamsSchema,
+            body: platformCounterpartyCreateBodySchema,
+            responses: {
+                200: platformCounterpartyResponseSchema,
+                201: platformCounterpartyResponseSchema,
+                ...errorResponses,
+                409: platformCounterpartyConflictSchema,
+            },
+        },
         list: {
             method: "GET",
             path: "",

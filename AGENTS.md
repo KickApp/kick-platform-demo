@@ -85,7 +85,7 @@ flows:
   balance, deleting a financial account that manual journal entries post to,
   deleting an opening balance once its bank account is reconciled, two
   concurrent opening balance writes to the same account, and a blocked
-  counterparty update, delete or merge answer 409 today;
+  counterparty create, update, delete or merge answer 409 today;
   preparing categorization and generating migration transaction rules for an
   ineligible workspace answer 422. The contract declares the same error
   superset on every route.
@@ -372,8 +372,17 @@ intentionally left out:
     (default) or `internal` (the token's organization only). After posting, the
     thread jumps to its last page, where the new message lands.
 
-- Counterparties: the whole upstream surface — `list`, `get`, `update`,
-  `delete` and `merge`; there is no upstream `create`. The directory mixes
+- Counterparties: the whole upstream surface — `list`, `get`, `create`,
+  `update`, `delete` and `merge`. `create` was added upstream after the rest
+  (kickapp/kick#17890); until that is deployed it answers 404. It resolves
+  the name the way the Kick app does, so it can answer 200 with a
+  counterparty that already existed — a global entry matching every field
+  sent, or one Kick had detected and now verifies — rather than 201 with a
+  new one. That is why the create form sends only the fields filled in and
+  hands the counterparty page a router-state notice saying which happened
+  (`frontend/src/lib/counterparty-notice.ts`); the form asks only for name,
+  company, email and direction, and the page holds every other field. The
+  directory mixes
   the workspace's own counterparties with global Kick entries it uses
   (`isGlobal`). Unlike the chart of accounts, the wire shape says which rows
   refuse a write: `update` answers 400 for a global counterparty, so the UI
@@ -381,8 +390,9 @@ intentionally left out:
   `update` with `isDisabled`). `get` is vendored because the counterparty page
   needs disabled rows, which the listing only returns with
   `includeDisabled=true`, and the merge picker searches the listing rather
-  than loading the whole directory. The three writes answer 409 with a
-  `reason`, and the UI only offers a retry the reason allows:
+  than loading the whole directory. The writes answer 409 with a
+  `reason` (`duplicate_name` for `create` and `update`, which the UI just
+  shows), and the UI only offers a retry the reason allows:
   `transactions_found` → `force=true`, `locked_transactions_found` or
   `bill_or_invoice_links_found` → `disableInsteadOfDelete=true` on delete,
   `locked_transactions_found` → `disableCounterpartyToMerge` on merge. The
