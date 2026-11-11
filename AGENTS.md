@@ -65,7 +65,8 @@ flows:
   `/platform/v1/entities/:entityId/journal-entries`,
   `/platform/v1/entities/:entityId/reports/*`, `/platform/v1/locks`,
   `/platform/v1/workspaces/:workspaceId/tasks`,
-  `/platform/v1/workspaces/:workspaceId/task-groups`).
+  `/platform/v1/workspaces/:workspaceId/task-groups`,
+  `/platform/v1/workspaces/:workspaceId/counterparties`).
 - The backend consumes it twice: `initClient` against Kick
   (`backend/src/kick-client.ts`) and `initServer`/`createExpressEndpoints`
   mounted under `/api` (`backend/src/router.ts`, `backend/src/index.ts`), so
@@ -82,14 +83,18 @@ flows:
   routes (a second migration, or triggering rule generation twice), a
   financial-account date change blocked by reconciliations or an opening
   balance, deleting a financial account that manual journal entries post to,
-  deleting an opening balance once its bank account is reconciled and two
-  concurrent opening balance writes to the same account answer 409 today;
+  deleting an opening balance once its bank account is reconciled, two
+  concurrent opening balance writes to the same account, and a blocked
+  counterparty create, update, delete or merge answer 409 today;
   preparing categorization and generating migration transaction rules for an
   ineligible workspace answer 422. The contract declares the same error
   superset on every route.
-  The merge 409 is the one error body that is not plain `{ message }` — it
-  carries structured blockers, so its handler forwards the 409 itself instead
-  of going through `forwardUpstreamError`, which would flatten it. Kick
+  Two kinds of 409 body are richer than plain `{ message }`: the account
+  merge's carries structured blockers, and the counterparty writes' carries a
+  `reason`. Their handlers go through `forwardConflictOrUpstreamError` with
+  the route's conflict schema instead of `forwardUpstreamError`, which would
+  flatten the body, and the frontend reads the counterparty `reason` off a
+  `CounterpartyConflictError`. Kick
   answers a malformed request with a ts-rest validation envelope
   rather than `{ message }`, so `forwardUpstreamError` unwraps that into a
   readable 400 — without it a plain "startDate must be on or before endDate"
@@ -228,14 +233,20 @@ and sync error codes in `financial-account.schema.ts` are enums to watch as
 well — the source list grows whenever Kick adds an integration, and the error
 codes whenever a provider gains a new way to break. `TASK_TYPES` in
 `task.schema.ts` is the fastest-moving of them all — Kick adds a task type
-with most new task-producing features — with `TASK_STATUSES` next to it.
+with most new task-producing features — with `TASK_STATUSES` next to it. In
+`counterparty.schema.ts`, `COUNTERPARTY_SOURCES` grows with Kick's
+integrations like the financial account sources, and
+`COUNTERPARTY_CONFLICT_REASONS` with every new way a counterparty write can
+be blocked; `COUNTERPARTY_DIRECTION_OVERRIDES` and
+`FEDERAL_TAX_CLASSIFICATIONS` are steadier.
 
 ## Vendored resources and deliberate gaps
 
-Fifteen resources are vendored: the organization, workspaces, entities, Plaid
+Sixteen resources are vendored: the organization, workspaces, entities, Plaid
 connections, financial accounts, transactions, the chart of accounts, account
-groups, opening balances, locks, tasks, task groups, accounting migrations,
-journal entries and reports. Some upstream routes are intentionally left out:
+groups, opening balances, counterparties, locks, tasks, task groups,
+accounting migrations, journal entries and reports. Some upstream routes are
+intentionally left out:
 
 - Workspaces: `list`, `create`, `get` and `update`. `create` requires a `plan`
   and `update`'s body is `{ plan }` and nothing else — both mirror upstream,
@@ -361,6 +372,35 @@ journal entries and reports. Some upstream routes are intentionally left out:
     (default) or `internal` (the token's organization only). After posting, the
     thread jumps to its last page, where the new message lands.
 
+- Counterparties: the whole upstream surface — `list`, `get`, `create`,
+  `update`, `delete` and `merge`. `create` was added upstream after the rest
+  (kickapp/kick#17890); until that is deployed it answers 404. It resolves
+  the name the way the Kick app does, so it can answer 200 with a
+  counterparty that already existed — a global entry matching every field
+  sent, or one Kick had detected and now verifies — rather than 201 with a
+  new one. That is why the create form sends only the fields filled in and
+  hands the counterparty page a router-state notice saying which happened
+  (`frontend/src/lib/counterparty-notice.ts`); the form asks only for name,
+  company, email and direction, and the page holds every other field. The
+  directory mixes
+  the workspace's own counterparties with global Kick entries it uses
+  (`isGlobal`). Unlike the chart of accounts, the wire shape says which rows
+  refuse a write: `update` answers 400 for a global counterparty, so the UI
+  shows those read-only and hides the disable toggle (disabling is
+  `update` with `isDisabled`). `get` is vendored because the counterparty page
+  needs disabled rows, which the listing only returns with
+  `includeDisabled=true`, and the merge picker searches the listing rather
+  than loading the whole directory. The writes answer 409 with a
+  `reason` (`duplicate_name` for `create` and `update`, which the UI just
+  shows), and the UI only offers a retry the reason allows:
+  `transactions_found` → `force=true`, `locked_transactions_found` or
+  `bill_or_invoice_links_found` → `disableInsteadOfDelete=true` on delete,
+  `locked_transactions_found` → `disableCounterpartyToMerge` on merge. The
+  delete flags accumulate across retries. The merge body's "can't merge into
+  itself" refine is left off like the other top-level refines; the picker
+  excludes the counterparty being merged instead. Transactions on the
+  Platform API carry no counterparty reference, so nothing else invalidates
+  or reads the counterparty queries.
 - Plaid: the Platform API's `create` takes a `processor_token` and has no
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is

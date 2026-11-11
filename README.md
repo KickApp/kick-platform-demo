@@ -3,12 +3,13 @@
 Demo app for the [Kick](https://kick.co) Platform API: a React frontend and a
 small Express BFF backend covering the **organization**, **workspaces**,
 **entities**, **Plaid connections**, **financial accounts**, **transactions**,
-the **chart of accounts**, **account groups**, **opening balances**, entity
-**locks**, **tasks** and **task groups**, **accounting migrations** (with the
+the **chart of accounts**, **account groups**, **opening balances**,
+**counterparties**, entity **locks**, **tasks** and **task groups**,
+**accounting migrations** (with the
 **journal entries** they migrate) and **reports** through the external Platform
 API.
 
-Opening a workspace gives twelve tabs: manage its entities, manage an entity's
+Opening a workspace gives thirteen tabs: manage its entities, manage an entity's
 chart of accounts (create, rename, move between groups, archive, delete),
 manage the account groups arranging that chart into a hierarchy, set the
 accounts' opening balances and adjustments (see
@@ -17,7 +18,9 @@ partner created (list, connect through Plaid Link, delete), manage the
 workspace's financial accounts of every source (rename, change bookkeeping
 dates, move to another entity, delete — see
 [Financial accounts](#financial-accounts)), read the workspace's transactions
-across every entity and recategorize them, read the workspace's tasks, the
+across every entity and recategorize them, manage the workspace's
+counterparties (create, edit, disable, delete, merge — see
+[Counterparties](#counterparties)), read the workspace's tasks, the
 transactions they cover and their message threads, post to those threads, and
 read the task groups (see [Tasks](#tasks)), lock or unlock each entity's books
 through a date (see [Locks](#locks)), migrate an entity's historical books and
@@ -161,6 +164,39 @@ curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions?st
 curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions/<uuid>" \
   -H "Content-Type: application/json" \
   -d '{"accountId": "<uuid>"}'
+
+# List a workspace's counterparties, closest matches first when searching
+# (disabled ones only with includeDisabled=true)
+curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties?search=acme&includeDisabled=true"
+
+# Create a counterparty: 201 when new, 200 when Kick resolved the name to a
+# global entry matching every field sent or to one it had detected; 409
+# duplicate_name when a verified counterparty has the name
+curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Acme Supplies", "email": "billing@acme.example", "directionOverride": "vendor"}'
+
+# Retrieve one counterparty (disabled ones included)
+curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties/<uuid>"
+
+# Update a counterparty: only the fields sent change and null clears one
+# (400 for a global counterparty, 409 duplicate_name for a taken name);
+# isDisabled disables or re-enables it
+curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties/<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "billing@acme.example", "directionOverride": "vendor", "isEligible1099": true, "website": null}'
+
+# Delete a counterparty, or remove a global one from the workspace. A 409's
+# reason says what blocks it: transactions_found (retry with force=true) or
+# locked_transactions_found / bill_or_invoice_links_found (retry with
+# disableInsteadOfDelete=true to disable it instead)
+curl -s -X DELETE "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties/<uuid>?force=true"
+
+# Merge one counterparty into another (409 locked_transactions_found unless
+# disableCounterpartyToMerge is set)
+curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties/merge" \
+  -H "Content-Type: application/json" \
+  -d '{"counterpartyToMergeId": "<uuid>", "counterpartyToKeepId": "<uuid>"}'
 
 # List a workspace's open tasks, newest first, with the assignee expanded
 # (multi-choice filters take repeated params)
@@ -640,6 +676,44 @@ by every workspace, the workspace's own and the organization's — sorted by
 name, with a scope filter and a search on the name. `isSystem` groups are
 managed by Kick.
 
+## Counterparties
+
+The Counterparties tab lists the workspace's counterparty directory: the
+counterparties the workspace owns and the global Kick directory entries it
+uses. It searches by name and alias and can include disabled counterparties.
+
+"Create counterparty" asks for a name and, optionally, a company name, email
+and vendor/customer override, then opens the counterparty's page. Kick
+resolves the name the way its app does, and the page says which outcome you
+got:
+
+- A new workspace counterparty (201).
+- A global Kick directory entry that matched every field you entered, which
+  the workspace now uses instead (200).
+- A counterparty Kick had already detected from transactions under that name,
+  now verified and updated with what you entered (200).
+
+A name that a verified counterparty already has is refused (409
+`duplicate_name`). The create route was added to the Platform API in
+kickapp/kick#17890; until that is deployed, creating answers 404.
+
+Clicking a counterparty opens its page, read with
+`GET .../counterparties/:counterpartyId`, where you can:
+
+- Edit its contact details, address, vendor/customer override, 1099
+  eligibility, federal tax classification and note. Only changed fields are
+  sent, and an emptied field is cleared.
+- Disable or enable it.
+- Delete it, or remove a global entry from the workspace. When Kick declines,
+  its 409 `reason` decides the follow-up: "Delete anyway" when transactions
+  are assigned to it (they are left without a counterparty), "Disable instead"
+  when it is used in a locked period or linked to bills or invoices.
+- Merge it into another counterparty picked by search. When it is used in a
+  locked period, the form offers to merge everything else and disable it.
+
+Global counterparties are shared across Kick, so the Platform API refuses to
+update them and the page shows them read-only.
+
 ## Reports
 
 The Reports tab covers all five Platform API reports — profit and loss, balance
@@ -658,7 +732,7 @@ backend/   Express BFF: authenticates to Kick, passes requests/errors through,
            logs incoming webhooks
 frontend/  React app: workspaces list/create/change-plan, then per-workspace entities,
            chart of accounts, account groups, opening balances, Plaid connections,
-           financial accounts, transactions, tasks, task groups, locks,
+           financial accounts, transactions, counterparties, tasks, task groups, locks,
            accounting migration and reports tabs
 ```
 

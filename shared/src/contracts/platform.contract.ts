@@ -46,6 +46,18 @@ import {
     platformOpeningBalancesPathParamsSchema,
 } from "../schemas/opening-balance.schema";
 import {
+    platformCounterpartiesListQuerySchema,
+    platformCounterpartiesListResponseSchema,
+    platformCounterpartiesPathParamsSchema,
+    platformCounterpartyConflictSchema,
+    platformCounterpartyCreateBodySchema,
+    platformCounterpartyDeleteQuerySchema,
+    platformCounterpartyMergeBodySchema,
+    platformCounterpartyPathParamsSchema,
+    platformCounterpartyResponseSchema,
+    platformCounterpartyUpdateBodySchema,
+} from "../schemas/counterparty.schema";
+import {
     createPlatformEntityBodySchema,
     platformEntitiesListQuerySchema,
     platformEntitiesListResponseSchema,
@@ -139,9 +151,10 @@ const c = initContract();
  * generation twice, a financial-account date change blocked by reconciliations
  * or an opening balance, deleting a financial account that manual journal
  * entries post to, deleting an opening balance of a reconciled bank account
- * and two concurrent opening balance writes to the same account are the routes
- * that actually answer 409 today; the merge is
- * the one whose 409 body carries structured blockers rather than plain
+ * and two concurrent opening balance writes to the same account, and blocked
+ * counterparty creates, updates, deletes and merges are the routes that actually answer
+ * 409 today; the account merge (structured blockers) and the counterparty
+ * writes (a `reason`) are the ones whose 409 body is richer than plain
  * `{ message }`. Preparing categorization for an entity that is not on a
  * custom chart of accounts and generating migration transaction rules for an
  * ineligible workspace are the routes that answer 422.
@@ -870,6 +883,83 @@ const taskGroupsContract = c.router(
     { pathPrefix: "/platform/v1/workspaces/:workspaceId/task-groups" },
 );
 
+/**
+ * Counterparties shown in a workspace's directory: its own, plus the global
+ * Kick directory entries it uses. `create` answers 201 for a new counterparty
+ * and 200 when Kick resolved the name to one it already had. The four writes
+ * answer 409 with a `reason` on top of `{ message }`.
+ */
+const counterpartiesContract = c.router(
+    {
+        create: {
+            method: "POST",
+            path: "",
+            pathParams: platformCounterpartiesPathParamsSchema,
+            body: platformCounterpartyCreateBodySchema,
+            responses: {
+                200: platformCounterpartyResponseSchema,
+                201: platformCounterpartyResponseSchema,
+                ...errorResponses,
+                409: platformCounterpartyConflictSchema,
+            },
+        },
+        list: {
+            method: "GET",
+            path: "",
+            pathParams: platformCounterpartiesPathParamsSchema,
+            query: platformCounterpartiesListQuerySchema,
+            responses: {
+                200: platformCounterpartiesListResponseSchema,
+                ...errorResponses,
+            },
+        },
+        get: {
+            method: "GET",
+            path: "/:counterpartyId",
+            pathParams: platformCounterpartyPathParamsSchema,
+            responses: {
+                200: platformCounterpartyResponseSchema,
+                ...errorResponses,
+            },
+        },
+        update: {
+            method: "PATCH",
+            path: "/:counterpartyId",
+            pathParams: platformCounterpartyPathParamsSchema,
+            body: platformCounterpartyUpdateBodySchema,
+            responses: {
+                200: platformCounterpartyResponseSchema,
+                ...errorResponses,
+                409: platformCounterpartyConflictSchema,
+            },
+        },
+        delete: {
+            method: "DELETE",
+            path: "/:counterpartyId",
+            pathParams: platformCounterpartyPathParamsSchema,
+            query: platformCounterpartyDeleteQuerySchema,
+            body: c.noBody(),
+            responses: {
+                200: c.noBody(),
+                ...errorResponses,
+                409: platformCounterpartyConflictSchema,
+            },
+        },
+        merge: {
+            method: "POST",
+            path: "/merge",
+            pathParams: platformCounterpartiesPathParamsSchema,
+            body: platformCounterpartyMergeBodySchema,
+            responses: {
+                200: c.noBody(),
+                ...errorResponses,
+                409: platformCounterpartyConflictSchema,
+            },
+        },
+    },
+    { pathPrefix: "/platform/v1/workspaces/:workspaceId/counterparties" },
+);
+
 export const platformContract = c.router({
     organization: organizationContract,
     workspaces: workspacesContract,
@@ -886,4 +976,5 @@ export const platformContract = c.router({
     locks: locksContract,
     tasks: tasksContract,
     taskGroups: taskGroupsContract,
+    counterparties: counterpartiesContract,
 });

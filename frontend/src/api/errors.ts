@@ -1,4 +1,7 @@
-import { errorMessageSchema } from "@kick-demo/shared";
+import {
+    errorMessageSchema,
+    type CounterpartyConflictReason,
+} from "@kick-demo/shared";
 
 export class ApiError extends Error {
     constructor(
@@ -6,6 +9,16 @@ export class ApiError extends Error {
         message: string,
     ) {
         super(message);
+    }
+}
+
+/** A counterparty write's 409, keeping the `reason` that picks the retry. */
+export class CounterpartyConflictError extends ApiError {
+    constructor(
+        message: string,
+        readonly reason: CounterpartyConflictReason,
+    ) {
+        super(409, message);
     }
 }
 
