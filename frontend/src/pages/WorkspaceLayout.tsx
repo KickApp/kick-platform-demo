@@ -18,6 +18,7 @@ const TABS = [
     { path: "plaid-connections", label: "Plaid connections" },
     { path: "financial-accounts", label: "Financial accounts" },
     { path: "transactions", label: "Transactions" },
+    { path: "counterparties", label: "Counterparties" },
     { path: "tasks", label: "Tasks" },
     { path: "task-groups", label: "Task groups" },
     { path: "locks", label: "Locks" },

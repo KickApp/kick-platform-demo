@@ -3,6 +3,8 @@ import { WorkspacesPage } from "./pages/WorkspacesPage";
 import { WorkspaceAccountGroupsPage } from "./pages/WorkspaceAccountGroupsPage";
 import { WorkspaceAccountingMigrationPage } from "./pages/WorkspaceAccountingMigrationPage";
 import { WorkspaceChartOfAccountsPage } from "./pages/WorkspaceChartOfAccountsPage";
+import { WorkspaceCounterpartiesPage } from "./pages/WorkspaceCounterpartiesPage";
+import { WorkspaceCounterpartyPage } from "./pages/WorkspaceCounterpartyPage";
 import { WorkspaceEntitiesPage } from "./pages/WorkspaceEntitiesPage";
 import { WorkspaceFinancialAccountsPage } from "./pages/WorkspaceFinancialAccountsPage";
 import { WorkspaceLayout } from "./pages/WorkspaceLayout";
@@ -26,8 +28,8 @@ export function App() {
                 <span className="app-subtitle">
                     Workspaces, entities, the chart of accounts, account groups,
                     opening balances, Plaid connections, financial accounts,
-                    transactions, tasks, locks, accounting migrations &amp;
-                    reports via the Platform API
+                    transactions, counterparties, tasks, locks, accounting
+                    migrations &amp; reports via the Platform API
                 </span>
             </header>
             <main className="app-main">
@@ -72,6 +74,14 @@ export function App() {
                         <Route
                             path="transactions"
                             element={<WorkspaceTransactionsPage />}
+                        />
+                        <Route
+                            path="counterparties"
+                            element={<WorkspaceCounterpartiesPage />}
+                        />
+                        <Route
+                            path="counterparties/:counterpartyId"
+                            element={<WorkspaceCounterpartyPage />}
                         />
                         <Route path="tasks" element={<WorkspaceTasksPage />} />
                         <Route

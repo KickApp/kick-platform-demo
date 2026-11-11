@@ -386,6 +386,12 @@ tbody tr:hover {
     max-width: 280px;
 }
 
+.action-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
 .connection-card {
     margin-bottom: 16px;
     overflow-x: auto;
@@ -456,6 +462,27 @@ tbody tr:hover {
 
 .form-card-wide {
     max-width: 760px;
+}
+
+.form-fieldset {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.form-section-title {
+    margin: 20px 0 10px;
+    color: var(--text-muted);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 16px;
 }
 
 .form-title {
