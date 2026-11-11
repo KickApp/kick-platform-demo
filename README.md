@@ -41,6 +41,9 @@ BFF backend (Express + ts-rest, :4001)
 Kick API  https://use-dev.kick.co/api/platform/v1/...
 ```
 
+[Architecture](architecture.md) draws the same path with Plaid, webhooks, and
+the three packages, then breaks down each component.
+
 The backend is a thin pass-through: it exposes the same ts-rest contract it
 consumes and only adds the organization access token, which never reaches the
 browser. The contract and Zod schemas live in `shared/` and are a standalone,
