@@ -10,6 +10,7 @@ export * from "./schemas/query.schema";
 export * from "./schemas/financial-account.schema";
 export * from "./schemas/plaid-connection.schema";
 export * from "./schemas/plaid-link.schema";
+export * from "./schemas/stripe-connection.schema";
 export * from "./schemas/transaction.schema";
 export * from "./schemas/chart-of-accounts.schema";
 export * from "./schemas/account-group.schema";
