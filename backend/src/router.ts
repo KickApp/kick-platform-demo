@@ -125,9 +125,10 @@ export const platformRouter = s.router(platformContract, {
             }
             return forwardUpstreamError(result);
         },
-        update: async ({ params, body }) => {
+        update: async ({ params, query, body }) => {
             const result = await kickClient.transactions.update({
                 params,
+                query,
                 body,
             });
             if (result.status === 200) {

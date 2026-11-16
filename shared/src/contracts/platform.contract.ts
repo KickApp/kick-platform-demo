@@ -99,6 +99,7 @@ import {
 } from "../schemas/plaid-connection.schema";
 import {
     platformTransactionPathParamsSchema,
+    platformTransactionRelationsQuerySchema,
     platformTransactionResponseSchema,
     platformTransactionsListQuerySchema,
     platformTransactionsListResponseSchema,
@@ -345,6 +346,7 @@ const transactionsContract = c.router(
             method: "PATCH",
             path: "/:transactionId",
             pathParams: platformTransactionPathParamsSchema,
+            query: platformTransactionRelationsQuerySchema,
             body: platformTransactionUpdateBodySchema,
             responses: {
                 200: platformTransactionResponseSchema,

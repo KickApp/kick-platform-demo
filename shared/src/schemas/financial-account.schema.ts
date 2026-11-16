@@ -248,6 +248,6 @@ export const platformFinancialAccountDeleteQuerySchema = z
     })
     .strict();
 
-export type PlatformFinancialAccountDeleteQuery = z.infer<
+export type PlatformFinancialAccountDeleteQuery = z.input<
     typeof platformFinancialAccountDeleteQuerySchema
 >;
