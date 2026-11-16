@@ -211,14 +211,19 @@ export const ACCOUNT_MERGE_BLOCKER_CODES = [
     "same_account",
     "different_class",
     "source_is_financial",
-    "source_has_role",
-    "source_is_kick_default",
+    "target_has_role",
+    "target_type_ineligible_for_role",
+    "target_is_financial",
     "source_archived",
     "target_archived",
     "locked_period",
+    "locked_period_must_be_unlocked",
     "target_reconciled",
     "both_have_opening_balance",
     "opening_balance_clearing_conflict",
+    "source_used_by_schedule",
+    "source_used_by_fixed_asset_policy",
+    "source_used_by_fixed_asset",
 ] as const;
 
 export const accountMergeBlockerCodeSchema = z.enum(

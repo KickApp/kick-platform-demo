@@ -26,6 +26,8 @@ export const ENTITY_LOCK_DATE_CHANGED_EVENT = "entity.lock_date.changed";
 export const PLAID_CONNECTION_ERROR_CODES = [
     "disconnected",
     "mfa_required",
+    "item_not_supported",
+    "item_removed",
 ] as const;
 
 export const plaidConnectionErrorCodeSchema = z.enum(

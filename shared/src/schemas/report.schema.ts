@@ -370,6 +370,8 @@ export const JOURNAL_ENTRY_SOURCE_TYPES = [
     "bill",
     "invoice",
     "schedule",
+    "fixed_asset",
+    "payroll",
 ] as const;
 
 export const journalEntrySourceTypeSchema = z.enum(JOURNAL_ENTRY_SOURCE_TYPES);
@@ -389,6 +391,8 @@ export const JOURNAL_ENTRY_SOURCE_TYPE_LABELS: Record<
     schedule: "Schedule",
     bill: "Bill",
     invoice: "Invoice",
+    fixed_asset: "Fixed asset",
+    payroll: "Payroll",
 };
 
 /**

@@ -16,6 +16,7 @@ export const FINANCIAL_ACCOUNT_TYPES = [
     "line_of_credit",
     "investment",
     "payment_processor",
+    "payroll_processor",
     "cash",
     "other",
 ] as const;
@@ -35,6 +36,7 @@ export const FINANCIAL_ACCOUNT_TYPE_LABELS: Record<
     line_of_credit: "Line of credit",
     investment: "Investment",
     payment_processor: "Payment processor",
+    payroll_processor: "Payroll processor",
     cash: "Cash",
     other: "Other",
 };
@@ -46,6 +48,7 @@ export const FINANCIAL_ACCOUNT_TYPE_LABELS: Record<
 export const FINANCIAL_ACCOUNT_SOURCES = [
     "stripe",
     "gusto",
+    "adp_run",
     "file_import",
     "plaid",
     "mercury",
@@ -54,6 +57,8 @@ export const FINANCIAL_ACCOUNT_SOURCES = [
     "manual",
     "billcom",
     "check",
+    "deposit",
+    "relay",
 ] as const;
 
 export const financialAccountSourceSchema = z.enum(FINANCIAL_ACCOUNT_SOURCES);
@@ -68,6 +73,7 @@ export const FINANCIAL_ACCOUNT_SOURCE_LABELS: Record<
 > = {
     stripe: "Stripe",
     gusto: "Gusto",
+    adp_run: "ADP RUN",
     file_import: "File import",
     plaid: "Plaid",
     mercury: "Mercury",
@@ -76,6 +82,8 @@ export const FINANCIAL_ACCOUNT_SOURCE_LABELS: Record<
     manual: "Manual",
     billcom: "Bill.com",
     check: "Check",
+    deposit: "Deposit",
+    relay: "Relay",
 };
 
 /**
