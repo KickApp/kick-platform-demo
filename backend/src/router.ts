@@ -130,11 +130,8 @@ export const platformRouter = s.router(platformContract, {
         },
     },
     financialAccounts: {
-        list: async ({ params, query }) => {
-            const result = await kickClient.financialAccounts.list({
-                params,
-                query,
-            });
+        list: async ({ query }) => {
+            const result = await kickClient.financialAccounts.list({ query });
             if (result.status === 200) {
                 return { status: 200, body: result.body };
             }

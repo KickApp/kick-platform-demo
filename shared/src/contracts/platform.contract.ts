@@ -77,7 +77,6 @@ import {
     platformFinancialAccountResponseSchema,
     platformFinancialAccountsListQuerySchema,
     platformFinancialAccountsListResponseSchema,
-    platformFinancialAccountsPathParamsSchema,
     platformFinancialAccountUpdateBodySchema,
 } from "../schemas/financial-account.schema";
 import {
@@ -339,10 +338,10 @@ const transactionsContract = c.router(
 );
 
 /**
- * Financial accounts of every source (integrations, file imports, manual) are
- * addressed across every entity of a workspace, so the routes are nested under
- * the workspace uuid. There is no upstream `get`: the listing carries the
- * whole row. `update` touches only the fields present in the body, `move`
+ * Financial accounts of every source (integrations, file imports, manual).
+ * `list` covers every entity of the workspace given by its `workspaceId`
+ * query; the other routes address a single account by its uuid. There is no
+ * upstream `get`: the listing carries the whole row. `update` touches only the fields present in the body, `move`
  * reassigns the account to another entity of the same workspace, and `delete`
  * is permanent and takes the account's transactions with it.
  */
@@ -351,7 +350,6 @@ const financialAccountsContract = c.router(
         list: {
             method: "GET",
             path: "",
-            pathParams: platformFinancialAccountsPathParamsSchema,
             query: platformFinancialAccountsListQuerySchema,
             responses: {
                 200: platformFinancialAccountsListResponseSchema,
@@ -390,9 +388,7 @@ const financialAccountsContract = c.router(
             },
         },
     },
-    {
-        pathPrefix: "/platform/v1/workspaces/:workspaceId/financial-accounts",
-    },
+    { pathPrefix: "/platform/v1/financial-accounts" },
 );
 
 /**
@@ -785,10 +781,10 @@ const reportsContract = c.router(
 );
 
 /**
- * Locks span the organization's client workspaces rather than nesting under a
- * workspace or entity: `list` narrows by `workspaceIds`/`entityIds` in the
- * query and leaves unlocked entities out, and `set` addresses its entity in the
- * body. A null `date` unlocks the entity; a changed date fires the
+ * Locks sit at the organization level rather than nesting under a workspace or
+ * entity path: `list` takes a required `workspaceId` (plus optional
+ * `entityIds`) in the query and leaves unlocked entities out, and `set`
+ * addresses its entity in the body. A null `date` unlocks the entity; a changed date fires the
  * `entity.lock_date.changed` webhook.
  */
 const locksContract = c.router(

@@ -166,22 +166,19 @@ export type PlatformFinancialAccount = z.infer<
     typeof platformFinancialAccountSchema
 >;
 
-/**
- * Financial accounts are addressed across every entity of a workspace, so the
- * routes are nested under the workspace uuid.
- */
-export const platformFinancialAccountsPathParamsSchema = z.object({
-    workspaceId: z.string().uuid(),
+/** A single account is addressed by its uuid alone. */
+export const platformFinancialAccountPathParamsSchema = z.object({
+    financialAccountId: z.string().uuid(),
 });
 
-export const platformFinancialAccountPathParamsSchema =
-    platformFinancialAccountsPathParamsSchema.extend({
-        financialAccountId: z.string().uuid(),
-    });
-
-/** An entity outside the workspace in `entityIds` answers 400. */
+/**
+ * The listing covers every entity of the workspace named by `workspaceId`; a
+ * workspace outside the organization answers 404 and an entity outside the
+ * workspace in `entityIds` answers 400.
+ */
 export const platformFinancialAccountsListQuerySchema =
     platformPaginationQuerySchema.extend({
+        workspaceId: z.string().uuid(),
         entityIds: uuidArrayQueryParamSchema,
     });
 
@@ -247,7 +244,7 @@ export type PlatformFinancialAccountMoveBody = z.infer<
  */
 export const platformFinancialAccountDeleteQuerySchema = z
     .object({
-        forceDeletion: z.enum(["true", "false"]).optional(),
+        forceDeletion: z.enum(["true", "false"]).default("false"),
     })
     .strict();
 
