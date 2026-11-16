@@ -22,7 +22,8 @@ export type KickWebhookEnvelope = z.infer<typeof kickWebhookEnvelopeSchema>;
 export const PLAID_CONNECTION_DISCONNECTED_EVENT =
     "plaid.connection.disconnected";
 
-export const PLAID_CONNECTION_RECONNECTED_EVENT = "plaid.connection.reconnected";
+export const PLAID_CONNECTION_RECONNECTED_EVENT =
+    "plaid.connection.reconnected";
 
 export const ENTITY_LOCK_DATE_CHANGED_EVENT = "entity.lock_date.changed";
 
@@ -166,7 +167,9 @@ const taskEventItemSchema = z.object({
  * Task events are batched: one delivery covers up to 100 tasks touched by the
  * same action in one workspace, and larger actions are split.
  */
-const taskEventPayloadSchema = <TItem extends z.ZodTypeAny>(itemSchema: TItem) =>
+const taskEventPayloadSchema = <TItem extends z.ZodTypeAny>(
+    itemSchema: TItem,
+) =>
     z.object({
         workspaceId: z.string().uuid(),
         tasks: z.array(itemSchema).min(1).max(100),

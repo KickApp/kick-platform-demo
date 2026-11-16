@@ -28,8 +28,9 @@ const platformMetadataValueSchema: z.ZodType<PlatformMetadataValue> = z.lazy(
  * Free-form JSON object owned by the API client; Kick stores it as-is and
  * never reads it. Unbounded on reads: the size limit is a write-time rule.
  */
-export const platformMetadataWireSchema: z.ZodType<PlatformMetadata> =
-    z.record(platformMetadataValueSchema);
+export const platformMetadataWireSchema: z.ZodType<PlatformMetadata> = z.record(
+    platformMetadataValueSchema,
+);
 
 /**
  * Replaces the stored metadata in full (`{}` clears it), at most
