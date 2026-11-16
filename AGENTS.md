@@ -56,6 +56,7 @@ flows:
 - `shared/src/contracts/platform.contract.ts` mirrors the upstream contract
   paths exactly (`/platform/v1/organization`, `/platform/v1/workspaces`,
   `/platform/v1/entities`, `/platform/v1/plaid-connections`,
+  `/platform/v1/stripe-connections`,
   `/platform/v1/workspaces/:workspaceId/transactions`,
   `/platform/v1/workspaces/:workspaceId/financial-accounts`,
   `/platform/v1/entities/:entityId/chart-of-accounts`,
@@ -143,6 +144,22 @@ the browser only ever holds a link token, and Kick only ever receives a
 processor token. Plaid SDK rejections are unwrapped by `toPlaidRequestError`
 into a readable 400 — without it the caller only sees "Request failed with
 status code 400".
+
+## Stripe connections: account id by hand, no Stripe flow
+
+Unlike Plaid, the demo has **no Stripe auth or onboarding flow** for now. It
+holds no Stripe credentials, has no Stripe SDK and no `/demo/v1/stripe-*`
+routes, and never lists or creates accounts on a Stripe platform. The
+"Connect Stripe account" form on the Financial accounts tab takes an existing
+`acct_...` id typed in by hand and posts it, with the entity, to
+`POST /platform/v1/stripe-connections` unchanged.
+
+That is all the Platform API needs: the partner connects an account of its
+**own Stripe platform** by id, and Kick reads it with the Stripe API key
+stored in the organization's API settings in the Kick app — there is no OAuth
+grant. The key cannot be set through the Platform API, so storing it is a
+manual prerequisite; until then `create` answers 400 with Kick's message,
+which the BFF forwards verbatim.
 
 ## The accounting migration flow
 
@@ -242,8 +259,8 @@ be blocked; `COUNTERPARTY_DIRECTION_OVERRIDES` and
 
 ## Vendored resources and deliberate gaps
 
-Sixteen resources are vendored: the organization, workspaces, entities, Plaid
-connections, financial accounts, transactions, the chart of accounts, account
+Seventeen resources are vendored: the organization, workspaces, entities, Plaid
+connections, Stripe connections, financial accounts, transactions, the chart of accounts, account
 groups, opening balances, counterparties, locks, tasks, task groups,
 accounting migrations, journal entries and reports. Some upstream routes are
 intentionally left out:
@@ -405,6 +422,15 @@ intentionally left out:
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is
   kept for parity and curl use.
+- Stripe connections: both upstream routes, `create` and `markFixed`. Upstream
+  has no `list` or `delete`: the created account (source `stripe`, type
+  `payment_processor`) is read, moved and deleted through the financial
+  accounts routes, which is why the form lives on that tab. The account id is
+  typed in by hand — see
+  [Stripe connections](#stripe-connections-account-id-by-hand-no-stripe-flow).
+  `markFixed` resumes syncing a connection Kick marked disconnected; it is
+  vendored for parity and curl use only, because financial accounts carry no
+  connection id and the UI has nowhere to offer it.
 - Classes, ledgers, users and transaction rules are not vendored at all — the rules
   seeded by an accounting migration are only observable in the Kick app, not
   through this demo.

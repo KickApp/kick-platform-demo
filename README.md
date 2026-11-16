@@ -2,7 +2,8 @@
 
 Demo app for the [Kick](https://kick.co) Platform API: a React frontend and a
 small Express BFF backend covering the **organization**, **workspaces**,
-**entities**, **Plaid connections**, **financial accounts**, **transactions**,
+**entities**, **Plaid connections**, **Stripe connections**, **financial
+accounts**, **transactions**,
 the **chart of accounts**, **account groups**, **opening balances**,
 **counterparties**, entity **locks**, **tasks** and **task groups**,
 **accounting migrations** (with the
@@ -17,7 +18,8 @@ accounts' opening balances and adjustments (see
 partner created (list, connect through Plaid Link, delete), manage the
 workspace's financial accounts of every source (rename, change bookkeeping
 dates, move to another entity, delete — see
-[Financial accounts](#financial-accounts)), read the workspace's transactions
+[Financial accounts](#financial-accounts)) and connect a Stripe account by its
+hand-entered id (see [Stripe connections](#stripe-connections)), read the workspace's transactions
 across every entity and recategorize them, manage the workspace's
 counterparties (create, edit, disable, delete, merge — see
 [Counterparties](#counterparties)), read the workspace's tasks, the
@@ -135,6 +137,16 @@ curl -s -X POST "http://localhost:4001/api/platform/v1/plaid-connections" \
 
 # Delete a Plaid connection (409 when its account carries manual journal entries)
 curl -s -X DELETE "http://localhost:4001/api/platform/v1/plaid-connections/<uuid>"
+
+# Connect an account of your own Stripe platform by its id. Kick reads it with
+# the Stripe API key stored in the organization's API settings (400 until one
+# is stored); there is no OAuth step
+curl -s -X POST "http://localhost:4001/api/platform/v1/stripe-connections" \
+  -H "Content-Type: application/json" \
+  -d '{"entityId": "<uuid>", "stripeAccountId": "acct_1PqXyZ2eZvKYlo2C"}'
+
+# Resume syncing a Stripe connection Kick marked disconnected
+curl -s -X POST "http://localhost:4001/api/platform/v1/stripe-connections/<uuid>/mark-fixed"
 
 # List the financial accounts of a workspace, of every source (optionally
 # narrowed to entities)
@@ -443,6 +455,24 @@ it was last synced (`balanceSyncedAt`); both are the latest across the
 account's connections. A **Sync off** badge reflects the account's own
 `disabled` flag, which turns off syncing new transactions whatever the
 connections' health; the Platform API has no route to change it.
+
+## Stripe connections
+
+**Connect Stripe account** on the Financial accounts tab creates a Stripe
+connection through `POST /platform/v1/stripe-connections`. For now the demo
+has **no Stripe sign-in or onboarding flow**: you pick an entity and type, by
+hand, the `acct_...` id of an account already connected to your own Stripe
+platform (copied from your Stripe dashboard). The demo holds no Stripe
+credentials and sends the id to Kick unchanged.
+
+Kick reads the account with the Stripe API key stored in the organization's
+API settings in the Kick app, both when connecting and on every sync. Store
+that key first — until then, and when the key is rejected or the account is
+unreachable with it, Kick answers `400` and the form shows its message. On
+success the form reports the connection and the created account (a payment
+processor assigned to the entity), whose first sync has started; the account
+then appears in the list below like any other. The Platform API has no route
+to list or delete Stripe connections, so the account is managed from this tab.
 
 ## Webhooks
 
