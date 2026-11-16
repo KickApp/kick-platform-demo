@@ -82,6 +82,13 @@ export const platformRouter = s.router(platformContract, {
             }
             return forwardUpstreamError(result);
         },
+        update: async ({ params, body }) => {
+            const result = await kickClient.entities.update({ params, body });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
     },
     plaidConnections: {
         list: async ({ query }) => {

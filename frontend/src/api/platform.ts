@@ -81,7 +81,10 @@ export async function createWorkspace(body: CreatePlatformWorkspaceBody) {
     throw toApiError(result);
 }
 
-/** The update body is the plan and nothing else; it takes effect immediately. */
+/**
+ * Changes the plan (effective immediately) and/or replaces the metadata; only
+ * the fields present in the body are touched.
+ */
 export async function updateWorkspace({
     workspaceId,
     body,

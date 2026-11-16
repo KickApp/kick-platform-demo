@@ -1,54 +1,62 @@
 import { z } from "zod";
+import {
+    platformMetadataSchema,
+    platformMetadataWireSchema,
+} from "./metadata.schema";
 import { platformPaginationSchema } from "./pagination.schema";
 
 /**
- * Every plan a workspace can read back. Vendored from the upstream
- * `FLAT_RATE_PLANS` enum; a plan Kick adds upstream fails the BFF's response
- * validation until it is copied here.
+ * Every plan the Platform API reads or writes, vendored from the upstream
+ * `PLATFORM_ASSIGNABLE_PLANS`. Workspaces on any other plan (Enterprise,
+ * FreshBooks) are filtered out upstream, so the wire `plan` never carries
+ * one. Which of these the caller's organization can actually assign comes
+ * from `GET /platform/v1/organization` (`allowedPlans`); Kick answers 400 for
+ * a plan outside that list.
  */
 export const WORKSPACE_PLANS = [
     "FREE",
     "BASIC",
     "PLUS",
     "ADVANCED",
-    "ENTERPRISE",
-    "FRESHBOOKS",
     "READ_ONLY",
+    "TAX",
 ] as const;
 
 export const workspacePlanSchema = z.enum(WORKSPACE_PLANS);
 
 export type WorkspacePlan = z.infer<typeof workspacePlanSchema>;
 
-/**
- * The subset of plans an organization may assign to a client workspace on
- * create/update. Which of these the caller's organization can actually use
- * comes from `GET /platform/v1/organization` (`allowedPlans`); Kick answers
- * 400 for a plan outside that list.
- */
-export const WORKSPACE_ASSIGNABLE_PLANS = [
-    "FREE",
-    "BASIC",
-    "PLUS",
-    "ADVANCED",
-    "READ_ONLY",
-] as const;
-
-export const workspaceAssignablePlanSchema = z.enum(WORKSPACE_ASSIGNABLE_PLANS);
-
-export type WorkspaceAssignablePlan = z.infer<
-    typeof workspaceAssignablePlanSchema
->;
-
 export const WORKSPACE_PLAN_LABELS: Record<WorkspacePlan, string> = {
     FREE: "Free",
     BASIC: "Basic",
     PLUS: "Plus",
     ADVANCED: "Advanced",
-    ENTERPRISE: "Enterprise",
-    FRESHBOOKS: "FreshBooks",
     READ_ONLY: "Read-only",
+    TAX: "Tax",
 };
+
+/**
+ * Timezone a workspace resolves accounting calendar days in. Set at create
+ * (default `America/Los_Angeles`) and frozen afterwards.
+ */
+export const WORKSPACE_TIMEZONES = [
+    "America/New_York",
+    "America/Chicago",
+    "America/Denver",
+    "America/Phoenix",
+    "America/Los_Angeles",
+    "America/Anchorage",
+    "America/Adak",
+    "Pacific/Honolulu",
+    "America/Puerto_Rico",
+    "Pacific/Guam",
+    "Pacific/Pago_Pago",
+    "UTC",
+] as const;
+
+export const workspaceTimezoneSchema = z.enum(WORKSPACE_TIMEZONES);
+
+export type WorkspaceTimezone = z.infer<typeof workspaceTimezoneSchema>;
 
 /**
  * Wire shape of a Platform API workspace, i.e. the JSON the endpoint actually
@@ -62,7 +70,9 @@ export const WORKSPACE_PLAN_LABELS: Record<WorkspacePlan, string> = {
 export const platformWorkspaceSchema = z.object({
     id: z.string().uuid(),
     name: z.string(),
+    timezone: workspaceTimezoneSchema,
     plan: workspacePlanSchema,
+    metadata: platformMetadataWireSchema,
     createdAt: z.string(),
 });
 
@@ -89,10 +99,13 @@ export type PlatformWorkspaceResponse = z.infer<
     typeof platformWorkspaceResponseSchema
 >;
 
-export const createPlatformWorkspaceBodySchema = z.object({
-    name: z.string().min(1).max(200),
-    plan: workspaceAssignablePlanSchema,
-});
+export const createPlatformWorkspaceBodySchema = z
+    .object({
+        name: z.string().min(1).max(200),
+        timezone: workspaceTimezoneSchema.optional(),
+        plan: workspacePlanSchema,
+    })
+    .strict();
 
 export type CreatePlatformWorkspaceBody = z.infer<
     typeof createPlatformWorkspaceBodySchema
@@ -100,11 +113,15 @@ export type CreatePlatformWorkspaceBody = z.infer<
 
 /**
  * Changing `plan` requires the organization to own the workspace billing; the
- * new plan takes effect immediately.
+ * new plan takes effect immediately. `metadata` replaces the stored object in
+ * full. An empty body answers 400.
  */
-export const updatePlatformWorkspaceBodySchema = z.object({
-    plan: workspaceAssignablePlanSchema,
-});
+export const updatePlatformWorkspaceBodySchema = z
+    .object({
+        plan: workspacePlanSchema.optional(),
+        metadata: platformMetadataSchema.optional(),
+    })
+    .strict();
 
 export type UpdatePlatformWorkspaceBody = z.infer<
     typeof updatePlatformWorkspaceBodySchema

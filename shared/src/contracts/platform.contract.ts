@@ -63,6 +63,7 @@ import {
     platformEntitiesListResponseSchema,
     platformEntityPathParamsSchema,
     platformEntityResponseSchema,
+    updatePlatformEntityBodySchema,
 } from "../schemas/entity.schema";
 import {
     platformLockResponseSchema,
@@ -142,8 +143,9 @@ const c = initContract();
  * (base `https://use-dev.kick.co/api`) and the frontend's client against the
  * BFF (base `/api`).
  *
- * Error responses are declared as the superset {400, 401, 404, 409, 422, 429}
- * on every route so the BFF can pass upstream errors through uniformly.
+ * Error responses are declared as the superset {400, 401, 403, 404, 409, 422,
+ * 429} on every route so the BFF can pass upstream errors through uniformly;
+ * Kick answers 403 to writes on a workspace on the Read-only plan.
  * Deleting a Plaid connection, updating a transaction dated on or before the
  * entity's lock date, deleting an account that has journal entries and a
  * blocked account merge, a second accounting migration and triggering its rule
@@ -161,6 +163,7 @@ const c = initContract();
 const errorResponses = {
     400: errorMessageSchema,
     401: errorMessageSchema,
+    403: errorMessageSchema,
     404: errorMessageSchema,
     409: errorMessageSchema,
     422: errorMessageSchema,
@@ -196,8 +199,8 @@ const workspacesContract = c.router(
                 ...errorResponses,
             },
         },
-        // Changes the plan and nothing else — that is the whole update body
-        // upstream. The organization must own the workspace billing.
+        // Changes the plan and/or replaces the metadata. Changing the plan
+        // requires the organization to own the workspace billing.
         update: {
             method: "PATCH",
             path: "/:workspaceId",
@@ -231,6 +234,11 @@ const organizationContract = c.router(
     { pathPrefix: "/platform/v1/organization" },
 );
 
+/**
+ * Entities are listed per workspace (`workspaceId` query) and created in one
+ * (`workspaceId` body). The upstream `delete` (permanent, with every account,
+ * transaction and document of the entity) is deliberately not vendored.
+ */
 const entitiesContract = c.router(
     {
         list: {
@@ -255,6 +263,16 @@ const entitiesContract = c.router(
             method: "GET",
             path: "/:entityId",
             pathParams: platformEntityPathParamsSchema,
+            responses: {
+                200: platformEntityResponseSchema,
+                ...errorResponses,
+            },
+        },
+        update: {
+            method: "PATCH",
+            path: "/:entityId",
+            pathParams: platformEntityPathParamsSchema,
+            body: updatePlatformEntityBodySchema,
             responses: {
                 200: platformEntityResponseSchema,
                 ...errorResponses,

@@ -26,6 +26,7 @@ const c = initContract();
 const errorResponses = {
     400: errorMessageSchema,
     401: errorMessageSchema,
+    403: errorMessageSchema,
     404: errorMessageSchema,
     409: errorMessageSchema,
     429: errorMessageSchema,
