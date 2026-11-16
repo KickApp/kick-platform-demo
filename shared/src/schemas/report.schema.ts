@@ -85,9 +85,16 @@ export type PlatformGeneralLedgerQuery = z.infer<
     typeof platformGeneralLedgerQuerySchema
 >;
 
+/**
+ * `accountId` is the chart-of-accounts account and `groupId` its account
+ * group. Both are null on derived lines that match no ledger account (such as
+ * the cash flow's Net Income line), and `groupId` also for ungrouped accounts.
+ */
 export const platformReportLineSchema = z.object({
+    accountId: z.string().uuid().nullable(),
     accountCode: z.string().nullable(),
     accountName: z.string(),
+    groupId: z.string().uuid().nullable(),
     amount: z.number(),
     amountsByPeriod: z.array(z.number()),
 });
@@ -409,6 +416,7 @@ export const platformGeneralLedgerAccountSchema = z.object({
     accountId: z.string().uuid(),
     accountCode: z.number().int(),
     accountName: z.string(),
+    groupId: z.string().uuid().nullable(),
     openingBalance: z.number(),
     closingBalance: z.number(),
     entries: z.array(platformGeneralLedgerEntrySchema),

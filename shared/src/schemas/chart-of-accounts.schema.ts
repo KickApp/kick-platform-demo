@@ -81,8 +81,10 @@ export const ACCOUNT_TYPE_CLASSES: Record<AccountType, AccountClass> = {
 /**
  * Wire shape of a Platform API account. `code` is the human-facing account
  * code, absent on some accounts. `groupId` is the account group the account
- * belongs to, null when ungrouped. Archived accounts stay in the listing and
- * are flagged with `isDisabled`.
+ * belongs to, null when ungrouped. `financialAccountId` is the financial
+ * (bank) account the ledger account was generated for, null for standard and
+ * custom accounts. Archived accounts stay in the listing and are flagged with
+ * `isDisabled`.
  */
 export const platformAccountSchema = z.object({
     id: z.string().uuid(),
@@ -91,6 +93,7 @@ export const platformAccountSchema = z.object({
     type: accountTypeSchema,
     class: accountClassSchema,
     groupId: z.string().uuid().nullable(),
+    financialAccountId: z.string().uuid().nullable(),
     isDisabled: z.boolean(),
     createdAt: z.string(),
 });
