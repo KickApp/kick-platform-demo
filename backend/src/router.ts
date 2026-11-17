@@ -82,6 +82,13 @@ export const platformRouter = s.router(platformContract, {
             }
             return forwardUpstreamError(result);
         },
+        update: async ({ params, body }) => {
+            const result = await kickClient.entities.update({ params, body });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
     },
     plaidConnections: {
         list: async ({ query }) => {
@@ -137,9 +144,10 @@ export const platformRouter = s.router(platformContract, {
             }
             return forwardUpstreamError(result);
         },
-        update: async ({ params, body }) => {
+        update: async ({ params, query, body }) => {
             const result = await kickClient.transactions.update({
                 params,
+                query,
                 body,
             });
             if (result.status === 200) {
@@ -149,11 +157,8 @@ export const platformRouter = s.router(platformContract, {
         },
     },
     financialAccounts: {
-        list: async ({ params, query }) => {
-            const result = await kickClient.financialAccounts.list({
-                params,
-                query,
-            });
+        list: async ({ query }) => {
+            const result = await kickClient.financialAccounts.list({ query });
             if (result.status === 200) {
                 return { status: 200, body: result.body };
             }

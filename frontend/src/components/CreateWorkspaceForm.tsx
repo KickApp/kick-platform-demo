@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-    WORKSPACE_ASSIGNABLE_PLANS,
+    WORKSPACE_PLANS,
     WORKSPACE_PLAN_LABELS,
-    type WorkspaceAssignablePlan,
+    type WorkspacePlan,
 } from "@kick-demo/shared";
 import { createWorkspace, fetchOrganization } from "../api/platform";
 import { ErrorMessageBox } from "./StatusMessage";
@@ -11,7 +11,7 @@ import { ErrorMessageBox } from "./StatusMessage";
 export function CreateWorkspaceForm({ onDone }: { onDone: () => void }) {
     const queryClient = useQueryClient();
     const [name, setName] = useState("");
-    const [plan, setPlan] = useState<WorkspaceAssignablePlan | null>(null);
+    const [plan, setPlan] = useState<WorkspacePlan | null>(null);
 
     const organizationQuery = useQuery({
         queryKey: ["organization"],
@@ -20,7 +20,7 @@ export function CreateWorkspaceForm({ onDone }: { onDone: () => void }) {
 
     // Only the plans the organization may assign are offered, in the
     // canonical order. Kick would answer 400 for anything else anyway.
-    const assignablePlans = WORKSPACE_ASSIGNABLE_PLANS.filter((candidate) =>
+    const assignablePlans = WORKSPACE_PLANS.filter((candidate) =>
         (organizationQuery.data?.allowedPlans ?? []).includes(candidate),
     );
     const selectedPlan = plan ?? assignablePlans[0] ?? null;

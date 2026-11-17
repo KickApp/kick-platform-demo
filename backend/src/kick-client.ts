@@ -24,7 +24,7 @@ export class UpstreamError extends Error {
     }
 }
 
-type ForwardedErrorStatus = 400 | 401 | 404 | 409 | 422 | 429;
+type ForwardedErrorStatus = 400 | 401 | 403 | 404 | 409 | 422 | 429;
 
 type ForwardedError = {
     status: ForwardedErrorStatus;
@@ -104,6 +104,7 @@ export function forwardUpstreamError(result: {
     switch (result.status) {
         case 400:
         case 401:
+        case 403:
         case 404:
         case 409:
         case 422:

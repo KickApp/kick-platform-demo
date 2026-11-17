@@ -82,7 +82,10 @@ export async function createWorkspace(body: CreatePlatformWorkspaceBody) {
     throw toApiError(result);
 }
 
-/** The update body is the plan and nothing else; it takes effect immediately. */
+/**
+ * Changes the plan (effective immediately) and/or replaces the metadata; only
+ * the fields present in the body are touched.
+ */
 export async function updateWorkspace({
     workspaceId,
     body,
@@ -202,11 +205,7 @@ export async function fetchFinancialAccounts(query: {
     limit: number;
     offset: number;
 }) {
-    const { workspaceId, ...rest } = query;
-    const result = await api.financialAccounts.list({
-        params: { workspaceId },
-        query: rest,
-    });
+    const result = await api.financialAccounts.list({ query });
     if (result.status === 200) {
         return result.body;
     }
@@ -220,16 +219,14 @@ export async function fetchFinancialAccounts(query: {
  * the change.
  */
 export async function updateFinancialAccount({
-    workspaceId,
     financialAccountId,
     body,
 }: {
-    workspaceId: string;
     financialAccountId: string;
     body: PlatformFinancialAccountUpdateBody;
 }) {
     const result = await api.financialAccounts.update({
-        params: { workspaceId, financialAccountId },
+        params: { financialAccountId },
         body,
     });
     if (result.status === 200) {
@@ -243,16 +240,14 @@ export async function updateFinancialAccount({
  * another entity of the same workspace.
  */
 export async function moveFinancialAccount({
-    workspaceId,
     financialAccountId,
     entityId,
 }: {
-    workspaceId: string;
     financialAccountId: string;
     entityId: string;
 }) {
     const result = await api.financialAccounts.move({
-        params: { workspaceId, financialAccountId },
+        params: { financialAccountId },
         body: { entityId },
     });
     if (result.status === 200) {
@@ -267,16 +262,14 @@ export async function moveFinancialAccount({
  * which deletes those journal entries too.
  */
 export async function deleteFinancialAccount({
-    workspaceId,
     financialAccountId,
     forceDeletion,
 }: {
-    workspaceId: string;
     financialAccountId: string;
     forceDeletion: boolean;
 }) {
     const result = await api.financialAccounts.delete({
-        params: { workspaceId, financialAccountId },
+        params: { financialAccountId },
         query: forceDeletion ? { forceDeletion: "true" } : {},
     });
     if (result.status === 200) {
@@ -846,7 +839,7 @@ export async function fetchAllWorkspaceLocks(
     do {
         const result = await api.locks.list({
             query: {
-                workspaceIds: [workspaceId],
+                workspaceId,
                 limit: PLATFORM_PAGE_LIMIT_MAX,
                 offset,
             },

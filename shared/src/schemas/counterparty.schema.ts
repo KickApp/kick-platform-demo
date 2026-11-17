@@ -136,10 +136,10 @@ export const platformCounterpartyPathParamsSchema =
 export const platformCounterpartiesListQuerySchema =
     platformPaginationQuerySchema.extend({
         search: z.string().trim().min(1).max(200).optional(),
-        includeDisabled: z.enum(["true", "false"]).optional(),
+        includeDisabled: z.enum(["true", "false"]).default("false"),
     });
 
-export type PlatformCounterpartiesListQuery = z.infer<
+export type PlatformCounterpartiesListQuery = z.input<
     typeof platformCounterpartiesListQuerySchema
 >;
 
@@ -159,16 +159,24 @@ export const platformCounterpartyResponseSchema = z.object({
 export const COUNTERPARTY_TEXT_MAX_LENGTH = 255;
 export const COUNTERPARTY_NOTE_MAX_LENGTH = 5000;
 
-const optionalTextSchema = z
-    .string()
-    .max(COUNTERPARTY_TEXT_MAX_LENGTH)
-    .nullable()
-    .optional();
+/** Trimmed, and blank input reads as `null` (clear) rather than a 400. */
+const optionalTrimmedTextSchema = (maxLength: number) =>
+    z
+        .string()
+        .trim()
+        .max(maxLength)
+        .nullable()
+        .optional()
+        .transform((value) => (value === "" ? null : value));
+
+const optionalTextSchema = optionalTrimmedTextSchema(
+    COUNTERPARTY_TEXT_MAX_LENGTH,
+);
 
 /**
- * Only the fields present are touched and `null` clears one. Names are unique
- * within the workspace (409 `duplicate_name`), and a global counterparty
- * answers 400. Kick also rejects a website that isn't an http(s) link or bare
+ * Only the fields present are touched and `null` (or a blank string) clears
+ * one. Names are unique within the workspace (409 `duplicate_name`), and a
+ * global counterparty answers 400. Kick also rejects a website that isn't an http(s) link or bare
  * domain and a note containing HTML tags; those checks are left to its 400.
  */
 export const platformCounterpartyUpdateBodySchema = z
@@ -180,12 +188,9 @@ export const platformCounterpartyUpdateBodySchema = z
             .max(COUNTERPARTY_TEXT_MAX_LENGTH)
             .optional(),
         companyName: optionalTextSchema,
-        email: z
-            .string()
-            .email()
-            .max(COUNTERPARTY_TEXT_MAX_LENGTH)
-            .nullable()
-            .optional(),
+        email: optionalTextSchema.pipe(
+            z.string().email().nullable().optional(),
+        ),
         phoneNumber: optionalTextSchema,
         website: optionalTextSchema,
         street: optionalTextSchema,
@@ -201,11 +206,7 @@ export const platformCounterpartyUpdateBodySchema = z
         federalTaxClassification: federalTaxClassificationSchema
             .nullable()
             .optional(),
-        note: z
-            .string()
-            .max(COUNTERPARTY_NOTE_MAX_LENGTH)
-            .nullable()
-            .optional(),
+        note: optionalTrimmedTextSchema(COUNTERPARTY_NOTE_MAX_LENGTH),
         isDisabled: z.boolean().optional(),
     })
     .strict();
@@ -242,12 +243,12 @@ export type PlatformCounterpartyCreateBody = z.infer<
  */
 export const platformCounterpartyDeleteQuerySchema = z
     .object({
-        force: z.enum(["true", "false"]).optional(),
-        disableInsteadOfDelete: z.enum(["true", "false"]).optional(),
+        force: z.enum(["true", "false"]).default("false"),
+        disableInsteadOfDelete: z.enum(["true", "false"]).default("false"),
     })
     .strict();
 
-export type PlatformCounterpartyDeleteQuery = z.infer<
+export type PlatformCounterpartyDeleteQuery = z.input<
     typeof platformCounterpartyDeleteQuerySchema
 >;
 

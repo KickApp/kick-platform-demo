@@ -104,15 +104,17 @@ curl -s "http://localhost:4001/api/platform/v1/organization"
 curl -s "http://localhost:4001/api/platform/v1/workspaces?limit=10"
 
 # Create a workspace. plan is required and must be one of the organization's
-# allowedPlans (see the organization endpoint above)
+# allowedPlans (see the organization endpoint above); timezone is optional,
+# defaults to America/Los_Angeles and is frozen once set
 curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces" \
   -H "Content-Type: application/json" \
-  -d '{"name": "Acme Inc.", "plan": "FREE"}'
+  -d '{"name": "Acme Inc.", "plan": "FREE", "timezone": "America/New_York"}'
 
-# Change a workspace's plan; it takes effect immediately
+# Change a workspace's plan (effective immediately) and/or replace its
+# metadata, a free-form JSON object of at most 1 KB ({} clears it)
 curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>" \
   -H "Content-Type: application/json" \
-  -d '{"plan": "PLUS"}'
+  -d '{"plan": "PLUS", "metadata": {"crmId": "acct_123"}}'
 
 # List entities of a workspace
 curl -s "http://localhost:4001/api/platform/v1/entities?workspaceId=<uuid>"
@@ -122,6 +124,13 @@ curl -s "http://localhost:4001/api/platform/v1/entities?workspaceId=<uuid>"
 curl -s -X POST "http://localhost:4001/api/platform/v1/entities" \
   -H "Content-Type: application/json" \
   -d '{"workspaceId": "<uuid>", "name": "Acme LLC", "legalType": "smllc", "bookkeepingStartDate": "2026-01-01", "chartOfAccounts": {"type": "custom"}}'
+
+# Update an entity's profile: only the fields sent change, null clears a text
+# field, industries replaces the list and address (US only) replaces the
+# stored one in full
+curl -s -X PATCH "http://localhost:4001/api/platform/v1/entities/<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"description": "Design studio", "industries": ["agency"], "address": {"street": "123 Market St", "city": "San Francisco", "state": "CA", "postalCode": "94105"}}'
 
 # List the Plaid connections of a workspace (optionally narrowed to entities)
 curl -s "http://localhost:4001/api/platform/v1/plaid-connections?workspaceId=<uuid>&entityIds=<uuid>"
@@ -150,27 +159,31 @@ curl -s -X POST "http://localhost:4001/api/platform/v1/stripe-connections/<uuid>
 
 # List the financial accounts of a workspace, of every source (optionally
 # narrowed to entities)
-curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/financial-accounts?entityIds=<uuid>"
+curl -s "http://localhost:4001/api/platform/v1/financial-accounts?workspaceId=<uuid>&entityIds=<uuid>"
 
 # Rename a financial account and/or change its bookkeeping dates (null clears a
 # date; changing one regenerates the account's journal entries and answers 409
 # when reconciliations or an opening balance block it)
-curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/financial-accounts/<uuid>" \
+curl -s -X PATCH "http://localhost:4001/api/platform/v1/financial-accounts/<uuid>" \
   -H "Content-Type: application/json" \
   -d '{"name": "Operating Checking", "bookkeepingStartDate": "2026-01-01", "bookkeepingEndDate": null}'
 
 # Move a financial account, with its transactions, documents and accounting
 # data, to another entity of the same workspace
-curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces/<uuid>/financial-accounts/<uuid>/move" \
+curl -s -X POST "http://localhost:4001/api/platform/v1/financial-accounts/<uuid>/move" \
   -H "Content-Type: application/json" \
   -d '{"entityId": "<uuid>"}'
 
 # Delete a financial account and its transactions (409 when manual journal
 # entries post to it; forceDeletion=true deletes those too)
-curl -s -X DELETE "http://localhost:4001/api/platform/v1/workspaces/<uuid>/financial-accounts/<uuid>?forceDeletion=true"
+curl -s -X DELETE "http://localhost:4001/api/platform/v1/financial-accounts/<uuid>?forceDeletion=true"
 
 # List transactions of a workspace within an inclusive date range
 curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions?startDate=2026-01-01&endDate=2026-01-31"
+
+# Narrow further — by entity, account, amount, type, direction or review state —
+# and include the field reviews and the paired transfer
+curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions?entityIds=<uuid>&direction=money_out&minAmount=100&types=plaid&unreviewedFields=account&relations=reviews&relations=pairedTransfer"
 
 # Categorize a transaction (null clears it; 409 when dated on or before the entity's lock date)
 curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions/<uuid>" \
@@ -232,9 +245,9 @@ curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces/<uuid>/tasks/<
 # List the task groups available to a workspace's tasks, sorted by name
 curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/task-groups?scopes=workspace&scopes=organization"
 
-# List the locks of a workspace's entities (unlocked entities are left out;
-# entityIds narrows further, and both filters take repeated params)
-curl -s "http://localhost:4001/api/platform/v1/locks?workspaceIds=<uuid>"
+# List the locks of a workspace's entities (workspaceId is required, unlocked
+# entities are left out, and entityIds narrows further)
+curl -s "http://localhost:4001/api/platform/v1/locks?workspaceId=<uuid>"
 
 # Lock an entity's books through a date, inclusive (fires entity.lock_date.changed)
 curl -s -X PUT "http://localhost:4001/api/platform/v1/locks" \
@@ -476,9 +489,11 @@ to list or delete Stripe connections, so the account is managed from this tab.
 
 ## Webhooks
 
-Kick reports things that happen outside an API call as webhooks — today that a
-Plaid connection stopped syncing and the business owner has to reconnect it,
-and that an entity's lock date changed. This demo receives them at
+Kick reports things that happen outside an API call as webhooks — that a
+Plaid connection stopped syncing (and that it syncs again), that an entity's
+lock date changed, that a financial account was created, updated, moved or
+deleted, and that tasks were created, updated, changed status, got a comment
+or were deleted (task events are batched, up to 100 tasks per delivery). This demo receives them at
 `POST /api/demo/v1/webhooks/kick` and does one thing with them: prints them.
 Nothing is stored and no resource is refetched, so no screen reacts to an
 incoming event.

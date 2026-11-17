@@ -85,9 +85,16 @@ export type PlatformGeneralLedgerQuery = z.infer<
     typeof platformGeneralLedgerQuerySchema
 >;
 
+/**
+ * `accountId` is the chart-of-accounts account and `groupId` its account
+ * group. Both are null on derived lines that match no ledger account (such as
+ * the cash flow's Net Income line), and `groupId` also for ungrouped accounts.
+ */
 export const platformReportLineSchema = z.object({
+    accountId: z.string().uuid().nullable(),
     accountCode: z.string().nullable(),
     accountName: z.string(),
+    groupId: z.string().uuid().nullable(),
     amount: z.number(),
     amountsByPeriod: z.array(z.number()),
 });
@@ -363,6 +370,8 @@ export const JOURNAL_ENTRY_SOURCE_TYPES = [
     "bill",
     "invoice",
     "schedule",
+    "fixed_asset",
+    "payroll",
 ] as const;
 
 export const journalEntrySourceTypeSchema = z.enum(JOURNAL_ENTRY_SOURCE_TYPES);
@@ -382,6 +391,8 @@ export const JOURNAL_ENTRY_SOURCE_TYPE_LABELS: Record<
     schedule: "Schedule",
     bill: "Bill",
     invoice: "Invoice",
+    fixed_asset: "Fixed asset",
+    payroll: "Payroll",
 };
 
 /**
@@ -409,6 +420,7 @@ export const platformGeneralLedgerAccountSchema = z.object({
     accountId: z.string().uuid(),
     accountCode: z.number().int(),
     accountName: z.string(),
+    groupId: z.string().uuid().nullable(),
     openingBalance: z.number(),
     closingBalance: z.number(),
     entries: z.array(platformGeneralLedgerEntrySchema),

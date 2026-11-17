@@ -81,8 +81,10 @@ export const ACCOUNT_TYPE_CLASSES: Record<AccountType, AccountClass> = {
 /**
  * Wire shape of a Platform API account. `code` is the human-facing account
  * code, absent on some accounts. `groupId` is the account group the account
- * belongs to, null when ungrouped. Archived accounts stay in the listing and
- * are flagged with `isDisabled`.
+ * belongs to, null when ungrouped. `financialAccountId` is the financial
+ * (bank) account the ledger account was generated for, null for standard and
+ * custom accounts. Archived accounts stay in the listing and are flagged with
+ * `isDisabled`.
  */
 export const platformAccountSchema = z.object({
     id: z.string().uuid(),
@@ -91,6 +93,7 @@ export const platformAccountSchema = z.object({
     type: accountTypeSchema,
     class: accountClassSchema,
     groupId: z.string().uuid().nullable(),
+    financialAccountId: z.string().uuid().nullable(),
     isDisabled: z.boolean(),
     createdAt: z.string(),
 });
@@ -208,14 +211,19 @@ export const ACCOUNT_MERGE_BLOCKER_CODES = [
     "same_account",
     "different_class",
     "source_is_financial",
-    "source_has_role",
-    "source_is_kick_default",
+    "target_has_role",
+    "target_type_ineligible_for_role",
+    "target_is_financial",
     "source_archived",
     "target_archived",
     "locked_period",
+    "locked_period_must_be_unlocked",
     "target_reconciled",
     "both_have_opening_balance",
     "opening_balance_clearing_conflict",
+    "source_used_by_schedule",
+    "source_used_by_fixed_asset_policy",
+    "source_used_by_fixed_asset",
 ] as const;
 
 export const accountMergeBlockerCodeSchema = z.enum(

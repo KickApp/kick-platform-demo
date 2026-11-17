@@ -58,7 +58,7 @@ flows:
   `/platform/v1/entities`, `/platform/v1/plaid-connections`,
   `/platform/v1/stripe-connections`,
   `/platform/v1/workspaces/:workspaceId/transactions`,
-  `/platform/v1/workspaces/:workspaceId/financial-accounts`,
+  `/platform/v1/financial-accounts`,
   `/platform/v1/entities/:entityId/chart-of-accounts`,
   `/platform/v1/entities/:entityId/account-groups`,
   `/platform/v1/entities/:entityId/opening-balances`,
@@ -77,7 +77,7 @@ flows:
   backend (`frontend/vite.config.ts`, override target with `BACKEND_URL`, e.g.
   `http://host.docker.internal:4001` when running inside Docker).
 - Handlers are pure pass-through. Declared upstream errors
-  (400/401/404/409/422/429) are forwarded verbatim; anything undeclared becomes
+  (400/401/403/404/409/422/429) are forwarded verbatim; anything undeclared becomes
   a 502 via `UpstreamError`. Deleting a Plaid connection, updating a
   transaction dated on or before the entity's lock date, deleting an account
   that has journal entries, a blocked account merge, the accounting-migration
@@ -88,8 +88,9 @@ flows:
   concurrent opening balance writes to the same account, and a blocked
   counterparty create, update, delete or merge answer 409 today;
   preparing categorization and generating migration transaction rules for an
-  ineligible workspace answer 422. The contract declares the same error
-  superset on every route.
+  ineligible workspace answer 422, and writes on a workspace on the
+  Read-only plan answer 403. The contract declares the same error superset
+  on every route.
   Two kinds of 409 body are richer than plain `{ message }`: the account
   merge's carries structured blockers, and the counterparty writes' carries a
   `reason`. Their handlers go through `forwardConflictOrUpstreamError` with
@@ -214,6 +215,10 @@ Three constraints hold it together:
    field and then checks `payload` against the vendored schema. `version`
    versions the envelope, not a single event. Adding a new event means
    vendoring its payload schema there and listing it in `KICK_WEBHOOK_EVENTS`.
+   Every event upstream defines today is vendored: the Plaid connection
+   disconnected/reconnected pair, `entity.lock_date.changed`, the four
+   `financial_account.*` events and the five `task.*` events, which are
+   batched (`{ workspaceId, tasks: [...] }`, up to 100 tasks per delivery).
 
 Signature verification uses the `svix` package with
 `KICK_WEBHOOK_SIGNING_SECRET`, per-endpoint and rotatable in Kick's portal.
@@ -234,10 +239,13 @@ Kick adds upstream fails the BFF's response validation until it is copied here.
 That is the trade for catching drift early; the enums to watch are the account
 types and classes in `chart-of-accounts.schema.ts`, the report section enums
 in `report.schema.ts`, and the workspace plans in `workspace.schema.ts`
-(`WORKSPACE_PLANS` for reads versus the `WORKSPACE_ASSIGNABLE_PLANS` subset a
-write may carry — which of those the organization can actually use comes off
-the wire as `allowedPlans` on `GET /platform/v1/organization`, and that list is
-what every plan picker offers).
+(`WORKSPACE_PLANS`, upstream's `PLATFORM_ASSIGNABLE_PLANS`: Kick filters
+workspaces on any other plan out of the surface, so reads and writes share one
+list — which of those the organization can actually use comes off the wire as
+`allowedPlans` on `GET /platform/v1/organization`, and that list is what every
+plan picker offers). `JOURNAL_ENTRY_SOURCE_TYPES` in `report.schema.ts` and
+`ACCOUNT_MERGE_BLOCKER_CODES` in `chart-of-accounts.schema.ts` grow with new
+accounting features (fixed assets, payroll).
 
 Drift cuts the other way too, and more quietly: an extra value here only breaks
 once something writes it. `ACCOUNT_TYPES` carried two types Kick does not have
@@ -266,13 +274,26 @@ accounting migrations, journal entries and reports. Some upstream routes are
 intentionally left out:
 
 - Workspaces: `list`, `create`, `get` and `update`. `create` requires a `plan`
-  and `update`'s body is `{ plan }` and nothing else — both mirror upstream,
-  where changing the plan requires the organization to own the workspace
-  billing and takes effect immediately. The upstream `delete` (permanent, with
-  everything in the workspace) is deliberately not vendored: too destructive
-  for a demo surface.
+  and takes an optional `timezone`, frozen afterwards. `update` takes an
+  optional `plan` and an optional `metadata` (the "at least one" refine is
+  left off like the other top-level refines); changing the plan requires the
+  organization to own the workspace billing and takes effect immediately, and
+  `metadata` is a client-owned JSON object of at most 1 KB that replaces the
+  stored one. The UI only ever changes the plan. The upstream `delete`
+  (permanent, with everything in the workspace) is deliberately not vendored:
+  too destructive for a demo surface.
+- Entities: `list`, `create`, `get` and `update`. The wire shape carries the
+  profile (`description`, `website`, `industries`, `industryOther`), a US
+  `address`, a read-only `logoUrl` and client-owned `metadata`; `update`
+  touches only the fields sent and is vendored for parity and curl use — the
+  UI has no profile editor. The upstream `delete` (permanent, with every
+  account, transaction and document of the entity) is not vendored, for the
+  same reason as the workspace one.
 - Financial accounts: the whole upstream surface — `list`, `update`, `move`
-  and `delete`; there is no upstream `get`. They cover every source
+  and `delete`; there is no upstream `get`. They sit under
+  `/platform/v1/financial-accounts`: `list` names its workspace in a required
+  `workspaceId` query param and the other routes address the account by its
+  uuid alone. They cover every source
   (integrations, file imports, manual), not just the Plaid connections the
   partner created. The read-only sync fields (`transactionsSyncedAt`,
   `balanceSyncedAt`, `syncStatus`, `syncErrorCode`) are rolled up by Kick
@@ -290,7 +311,11 @@ intentionally left out:
   transactions, chart-of-accounts, journal-entry and report queries too.
 - Transactions: `list` and `update`. The upstream `get` is not vendored — the
   listing already carries the whole row, and its `ids` filter is how the task
-  page fetches the transactions a task covers.
+  page fetches the transactions a task covers. The other list filters
+  (`entityIds`, `accountIds`, `accrualAccountIds`, `classIds`, amounts,
+  `status`, `types`, `direction`, the reviewed/unreviewed fields) and the
+  `reviews`/`pairedTransfer` relations on both routes are vendored for parity
+  and curl use; the UI only filters by date.
 - Chart of accounts: everything except `get`, for the same reason as
   transactions — the listing already carries the whole row. Note the asymmetry
   in the write surface: `update` renames and/or moves the account into an
@@ -347,9 +372,9 @@ intentionally left out:
   index 20.
 - Locks: both upstream routes, `list` and `set`. Unlike every other resource
   they sit at the organization level rather than under a workspace or entity
-  path: `list` narrows by `workspaceIds` / `entityIds` query arrays (an id
-  outside the organization answers 400) and `set` is a `PUT` naming its entity
-  in the body, with a null `date` unlocking it. `list` leaves unlocked
+  path: `list` takes a required `workspaceId` query param plus an optional
+  `entityIds` array (an entity outside the workspace answers 400) and `set`
+  is a `PUT` naming its entity in the body, with a null `date` unlocking it. `list` leaves unlocked
   entities out entirely, so the Locks tab drives its table off the
   workspace's entities and reads a missing lock as unlocked rather than
   paging the lock listing on its own.
@@ -447,9 +472,11 @@ what the demo should say about two sets of books.
 ## Adding a new resource (e.g. classes, journal entries)
 
 1. Look up the resource's routes and payloads in the Platform API docs. Note
-   that resources nest under either a workspace or an entity path, e.g.
+   that most resources nest under either a workspace or an entity path, e.g.
    `/platform/v1/workspaces/:workspaceId/transactions` versus
-   `/platform/v1/entities/:entityId/chart-of-accounts`. An entity-scoped
+   `/platform/v1/entities/:entityId/chart-of-accounts`, while a few (financial
+   accounts, locks) sit at the top level and take `workspaceId` as a query
+   param. An entity-scoped
    resource shown in the workspace view needs an entity picker, the way
    `WorkspaceReportsPage` does it.
 2. Vendor the wire-shape schemas into `shared/src/schemas/<resource>.schema.ts`
