@@ -98,6 +98,11 @@ import {
     platformPlaidConnectionResponseSchema,
 } from "../schemas/plaid-connection.schema";
 import {
+    createPlatformStripeConnectionBodySchema,
+    platformStripeConnectionPathParamsSchema,
+    platformStripeConnectionResponseSchema,
+} from "../schemas/stripe-connection.schema";
+import {
     platformTransactionPathParamsSchema,
     platformTransactionRelationsQuerySchema,
     platformTransactionResponseSchema,
@@ -321,6 +326,37 @@ const plaidConnectionsContract = c.router(
         },
     },
     { pathPrefix: "/platform/v1/plaid-connections" },
+);
+
+/**
+ * The partner connects an account of its own Stripe platform by its `acct_...`
+ * id, and Kick reads it with the Stripe API key stored in the organization's
+ * API settings — there is no OAuth grant. Upstream has no list or delete: the
+ * created account is read and deleted through the financial accounts routes.
+ */
+const stripeConnectionsContract = c.router(
+    {
+        create: {
+            method: "POST",
+            path: "",
+            body: createPlatformStripeConnectionBodySchema,
+            responses: {
+                201: platformStripeConnectionResponseSchema,
+                ...errorResponses,
+            },
+        },
+        markFixed: {
+            method: "POST",
+            path: "/:connectionId/mark-fixed",
+            pathParams: platformStripeConnectionPathParamsSchema,
+            body: c.noBody(),
+            responses: {
+                200: c.noBody(),
+                ...errorResponses,
+            },
+        },
+    },
+    { pathPrefix: "/platform/v1/stripe-connections" },
 );
 
 /**
@@ -981,6 +1017,7 @@ export const platformContract = c.router({
     workspaces: workspacesContract,
     entities: entitiesContract,
     plaidConnections: plaidConnectionsContract,
+    stripeConnections: stripeConnectionsContract,
     transactions: transactionsContract,
     financialAccounts: financialAccountsContract,
     chartOfAccounts: chartOfAccountsContract,

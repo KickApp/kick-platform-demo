@@ -114,6 +114,25 @@ export const platformRouter = s.router(platformContract, {
             return forwardUpstreamError(result);
         },
     },
+    stripeConnections: {
+        create: async ({ body }) => {
+            const result = await kickClient.stripeConnections.create({ body });
+            if (result.status === 201) {
+                return { status: 201, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        // The upstream 200 carries no body, so neither does this one.
+        markFixed: async ({ params }) => {
+            const result = await kickClient.stripeConnections.markFixed({
+                params,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: undefined };
+            }
+            return forwardUpstreamError(result);
+        },
+    },
     transactions: {
         list: async ({ params, query }) => {
             const result = await kickClient.transactions.list({

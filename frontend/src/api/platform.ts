@@ -3,6 +3,7 @@ import {
     PLATFORM_PAGE_LIMIT_MAX,
     platformContract,
     type CreatePlatformEntityBody,
+    type CreatePlatformStripeConnectionBody,
     type CreatePlatformWorkspaceBody,
     type LedgerBasis,
     type PlatformAccount,
@@ -141,6 +142,17 @@ export async function deletePlaidConnection(connectionId: string) {
     });
     if (result.status === 200) {
         return;
+    }
+    throw toApiError(result);
+}
+
+/** The Stripe account id is typed in by hand: the demo has no Stripe flow. */
+export async function createStripeConnection(
+    body: CreatePlatformStripeConnectionBody,
+) {
+    const result = await api.stripeConnections.create({ body });
+    if (result.status === 201) {
+        return result.body;
     }
     throw toApiError(result);
 }

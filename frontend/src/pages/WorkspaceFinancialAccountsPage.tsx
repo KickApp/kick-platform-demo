@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import {
+    FINANCIAL_ACCOUNT_TYPE_LABELS,
+    type PlatformStripeConnectionResponse,
+} from "@kick-demo/shared";
 import { fetchFinancialAccounts } from "../api/platform";
+import { CreateStripeConnectionForm } from "../components/CreateStripeConnectionForm";
 import { FinancialAccountRow } from "../components/FinancialAccountRow";
 import { Pagination } from "../components/Pagination";
 import {
@@ -18,6 +23,9 @@ export function WorkspaceFinancialAccountsPage() {
     const { entities, entityName } = useWorkspaceEntities(workspaceId);
     const [offset, setOffset] = useState(0);
     const [entityFilter, setEntityFilter] = useState("");
+    const [isConnectingStripe, setIsConnectingStripe] = useState(false);
+    const [createdStripeConnection, setCreatedStripeConnection] =
+        useState<PlatformStripeConnectionResponse | null>(null);
 
     const accountsQuery = useQuery({
         queryKey: ["financialAccounts", workspaceId, entityFilter, offset],
@@ -43,7 +51,62 @@ export function WorkspaceFinancialAccountsPage() {
                         </p>
                     )}
                 </div>
+                {!isConnectingStripe && (
+                    <button
+                        type="button"
+                        className="button button-primary"
+                        onClick={() => {
+                            setCreatedStripeConnection(null);
+                            setIsConnectingStripe(true);
+                        }}
+                    >
+                        Connect Stripe account
+                    </button>
+                )}
             </div>
+
+            {isConnectingStripe && (
+                <CreateStripeConnectionForm
+                    workspaceId={workspaceId}
+                    onCreated={(response) => {
+                        setCreatedStripeConnection(response);
+                        setIsConnectingStripe(false);
+                    }}
+                    onCancel={() => setIsConnectingStripe(false)}
+                />
+            )}
+
+            {createdStripeConnection !== null && (
+                <div className="status status-info" role="status">
+                    Connected Stripe account{" "}
+                    <strong>
+                        {createdStripeConnection.connection.name ??
+                            createdStripeConnection.connection.stripeAccountId}
+                    </strong>{" "}
+                    (
+                    <span className="mono">
+                        {createdStripeConnection.connection.stripeAccountId}
+                    </span>
+                    ) to{" "}
+                    {entityName(createdStripeConnection.account.entityId) ??
+                        createdStripeConnection.account.entityId}
+                    . It created the account{" "}
+                    <strong>
+                        {createdStripeConnection.account.name ?? "—"}
+                    </strong>{" "}
+                    (
+                    {
+                        FINANCIAL_ACCOUNT_TYPE_LABELS[
+                            createdStripeConnection.account.type
+                        ]
+                    }
+                    ), and its first sync has started. Connection{" "}
+                    <span className="mono">
+                        {createdStripeConnection.connection.id}
+                    </span>
+                    .
+                </div>
+            )}
 
             <div className="filter-bar">
                 <label className="field-inline">
@@ -76,7 +139,8 @@ export function WorkspaceFinancialAccountsPage() {
                 <EmptyMessage>
                     No financial accounts
                     {entityFilter !== "" ? " for this entity" : ""} yet. Connect
-                    one from the Plaid connections tab.
+                    one from the Plaid connections tab, or connect a Stripe
+                    account by its id above.
                 </EmptyMessage>
             )}
 
