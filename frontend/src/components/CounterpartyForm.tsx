@@ -1,11 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    COUNTERPARTY_DIRECTION_OVERRIDES,
-    COUNTERPARTY_DIRECTION_OVERRIDE_LABELS,
     COUNTERPARTY_NOTE_MAX_LENGTH,
     COUNTERPARTY_TEXT_MAX_LENGTH,
-    counterpartyDirectionOverrideSchema,
     FEDERAL_TAX_CLASSIFICATIONS,
     FEDERAL_TAX_CLASSIFICATION_LABELS,
     federalTaxClassificationSchema,
@@ -32,7 +29,6 @@ const TEXT_FIELDS = [
 type TextField = (typeof TEXT_FIELDS)[number];
 
 type Draft = Record<TextField | "name", string> & {
-    directionOverride: string;
     isEligible1099: string;
     federalTaxClassification: string;
 };
@@ -51,7 +47,6 @@ function toDraft(counterparty: PlatformCounterparty): Draft {
         postalCode: counterparty.postalCode ?? "",
         country: counterparty.country ?? "",
         note: counterparty.note ?? "",
-        directionOverride: counterparty.directionOverride ?? "",
         isEligible1099:
             counterparty.isEligible1099 === null
                 ? ""
@@ -87,15 +82,6 @@ function toUpdateBody(
         if (next !== counterparty[field]) {
             body[field] = next;
         }
-    }
-    const directionOverride = counterpartyDirectionOverrideSchema.safeParse(
-        draft.directionOverride,
-    );
-    const nextDirectionOverride = directionOverride.success
-        ? directionOverride.data
-        : null;
-    if (nextDirectionOverride !== counterparty.directionOverride) {
-        body.directionOverride = nextDirectionOverride;
     }
     const isEligible1099 = parseEligible1099(draft.isEligible1099);
     if (isEligible1099 !== counterparty.isEligible1099) {
@@ -179,6 +165,9 @@ export function CounterpartyForm({
             await queryClient.invalidateQueries({
                 queryKey: ["counterparties", workspaceId],
             });
+            await queryClient.invalidateQueries({
+                queryKey: ["transactions", workspaceId],
+            });
         },
     });
 
@@ -236,29 +225,6 @@ export function CounterpartyForm({
 
                 <h4 className="form-section-title">Tax and classification</h4>
                 <div className="field-grid">
-                    <label className="field">
-                        <span className="field-label">Treated as</span>
-                        <select
-                            value={draft.directionOverride}
-                            onChange={(event) =>
-                                setDraft({
-                                    ...draft,
-                                    directionOverride: event.target.value,
-                                })
-                            }
-                        >
-                            <option value="">Inferred by Kick</option>
-                            {COUNTERPARTY_DIRECTION_OVERRIDES.map((each) => (
-                                <option key={each} value={each}>
-                                    {
-                                        COUNTERPARTY_DIRECTION_OVERRIDE_LABELS[
-                                            each
-                                        ]
-                                    }
-                                </option>
-                            ))}
-                        </select>
-                    </label>
                     <label className="field">
                         <span className="field-label">1099 eligible</span>
                         <select

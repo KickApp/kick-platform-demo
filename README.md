@@ -182,13 +182,19 @@ curl -s -X DELETE "http://localhost:4001/api/platform/v1/financial-accounts/<uui
 curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions?startDate=2026-01-01&endDate=2026-01-31"
 
 # Narrow further — by entity, account, amount, type, direction or review state —
-# and include the field reviews and the paired transfer
-curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions?entityIds=<uuid>&direction=money_out&minAmount=100&types=plaid&unreviewedFields=account&relations=reviews&relations=pairedTransfer"
+# and include the field reviews, the paired transfer and the counterparty
+curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions?entityIds=<uuid>&direction=money_out&minAmount=100&types=plaid&unreviewedFields=account&relations=reviews&relations=pairedTransfer&relations=counterparty"
 
 # Categorize a transaction (null clears it; 409 when dated on or before the entity's lock date)
 curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions/<uuid>" \
   -H "Content-Type: application/json" \
   -d '{"accountId": "<uuid>"}'
+
+# Assign a counterparty to a transaction (null removes it; 400 for a disabled
+# counterparty or a transaction matched to a bill or invoice, 409 when locked)
+curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions/<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"counterpartyId": "<uuid>"}'
 
 # List a workspace's counterparties, closest matches first when searching
 # (disabled ones only with includeDisabled=true)
@@ -199,7 +205,7 @@ curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties?
 # duplicate_name when a verified counterparty has the name
 curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties" \
   -H "Content-Type: application/json" \
-  -d '{"name": "Acme Supplies", "email": "billing@acme.example", "directionOverride": "vendor"}'
+  -d '{"name": "Acme Supplies", "email": "billing@acme.example"}'
 
 # Retrieve one counterparty (disabled ones included)
 curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties/<uuid>"
@@ -209,7 +215,7 @@ curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties/
 # isDisabled disables or re-enables it
 curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties/<uuid>" \
   -H "Content-Type: application/json" \
-  -d '{"email": "billing@acme.example", "directionOverride": "vendor", "isEligible1099": true, "website": null}'
+  -d '{"email": "billing@acme.example", "isEligible1099": true, "website": null}'
 
 # Delete a counterparty, or remove a global one from the workspace. A 409's
 # reason says what blocks it: transactions_found (retry with force=true) or
@@ -651,6 +657,20 @@ current assignment.
 There is also an accrual-basis `accrualAccountId`. It is part of the vendored
 schemas because `shared/` mirrors the upstream contract, but this demo keeps
 cash-basis books only and no screen reads or writes it.
+
+## Transactions and counterparties
+
+A transaction's counterparty is a field on the transaction too:
+`counterpartyId`, with the full row embedded as `counterparty` when the listing
+is asked for `relations=counterparty`, which the transactions tab and the task
+page always do. Its Counterparty column links to the counterparty page and has
+a "Change" (or "Assign") button that opens a search over the counterparty
+directory. Picking one sends `PATCH .../transactions/:transactionId` with only
+`counterpartyId`, and "Remove" sends `null`. Disabled counterparties are not
+offered because Kick refuses to assign them, and a transaction matched to a bill
+or invoice (`400`) or in a locked period (`409`) shows Kick's message under the
+cell. Renaming, disabling, merging or deleting a counterparty refreshes the
+transactions.
 
 ## Accounting migration
 

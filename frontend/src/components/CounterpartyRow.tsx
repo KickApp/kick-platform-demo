@@ -1,6 +1,5 @@
 import { Link } from "react-router";
 import {
-    COUNTERPARTY_DIRECTION_OVERRIDE_LABELS,
     COUNTERPARTY_SOURCE_LABELS,
     type PlatformCounterparty,
 } from "@kick-demo/shared";
@@ -35,15 +34,6 @@ export function CounterpartyRow({
                 <span className="badge">
                     {counterparty.isGlobal ? "Global" : "Workspace"}
                 </span>
-            </td>
-            <td>
-                {counterparty.directionOverride !== null ? (
-                    COUNTERPARTY_DIRECTION_OVERRIDE_LABELS[
-                        counterparty.directionOverride
-                    ]
-                ) : (
-                    <span className="cell-placeholder">Inferred</span>
-                )}
             </td>
             <td>{eligible1099Label(counterparty.isEligible1099)}</td>
             <td>

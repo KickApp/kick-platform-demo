@@ -341,6 +341,11 @@ tbody tr:hover {
     font-size: 12px;
 }
 
+.cell-actions {
+    display: flex;
+    gap: 6px;
+}
+
 .row-editor td {
     background: var(--bg);
     white-space: normal;

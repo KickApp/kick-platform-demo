@@ -12,6 +12,7 @@ import {
     LoadingMessage,
 } from "../components/StatusMessage";
 import { TransactionAccountCell } from "../components/TransactionAccountCell";
+import { TransactionCounterpartyCell } from "../components/TransactionCounterpartyCell";
 import { formatAmount } from "../lib/format";
 import { useEntityAccounts } from "../lib/use-entity-accounts";
 import { useWorkspaceEntities } from "../lib/use-workspace-entities";
@@ -33,6 +34,7 @@ export function WorkspaceTransactionsPage() {
                 workspaceId,
                 startDate: startDate !== "" ? startDate : undefined,
                 endDate: endDate !== "" ? endDate : undefined,
+                relations: ["counterparty"],
                 limit: PAGE_SIZE,
                 offset,
             }),
@@ -127,6 +129,7 @@ export function WorkspaceTransactionsPage() {
                                     <th>Entity</th>
                                     <th className="amount">Amount</th>
                                     <th>Account</th>
+                                    <th>Counterparty</th>
                                     <th>Source</th>
                                     <th>Status</th>
                                     <th>Books</th>
@@ -165,6 +168,12 @@ export function WorkspaceTransactionsPage() {
                                                     isLoadingAccounts={
                                                         accounts.isPending
                                                     }
+                                                />
+                                            </td>
+                                            <td>
+                                                <TransactionCounterpartyCell
+                                                    transaction={transaction}
+                                                    workspaceId={workspaceId}
                                                 />
                                             </td>
                                             <td>

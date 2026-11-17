@@ -2,10 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import {
-    COUNTERPARTY_DIRECTION_OVERRIDES,
-    COUNTERPARTY_DIRECTION_OVERRIDE_LABELS,
     COUNTERPARTY_TEXT_MAX_LENGTH,
-    counterpartyDirectionOverrideSchema,
     type PlatformCounterpartyCreateBody,
 } from "@kick-demo/shared";
 import { createCounterparty } from "../api/platform";
@@ -16,22 +13,15 @@ function toCreateBody({
     name,
     companyName,
     email,
-    directionOverride,
 }: {
     name: string;
     companyName: string;
     email: string;
-    directionOverride: string;
 }): PlatformCounterpartyCreateBody {
-    const parsedDirectionOverride =
-        counterpartyDirectionOverrideSchema.safeParse(directionOverride);
     return {
         name: name.trim(),
         ...(companyName.trim() !== "" && { companyName: companyName.trim() }),
         ...(email.trim() !== "" && { email: email.trim() }),
-        ...(parsedDirectionOverride.success && {
-            directionOverride: parsedDirectionOverride.data,
-        }),
     };
 }
 
@@ -53,18 +43,12 @@ export function CreateCounterpartyForm({
     const [name, setName] = useState("");
     const [companyName, setCompanyName] = useState("");
     const [email, setEmail] = useState("");
-    const [directionOverride, setDirectionOverride] = useState("");
 
     const mutation = useMutation({
         mutationFn: () =>
             createCounterparty({
                 workspaceId,
-                body: toCreateBody({
-                    name,
-                    companyName,
-                    email,
-                    directionOverride,
-                }),
+                body: toCreateBody({ name, companyName, email }),
             }),
         onSuccess: async ({ counterparty, isNew }) => {
             queryClient.setQueryData(
@@ -128,22 +112,6 @@ export function CreateCounterpartyForm({
                     onChange={(event) => setEmail(event.target.value)}
                     maxLength={COUNTERPARTY_TEXT_MAX_LENGTH}
                 />
-            </label>
-            <label className="field">
-                <span className="field-label">Treated as</span>
-                <select
-                    value={directionOverride}
-                    onChange={(event) =>
-                        setDirectionOverride(event.target.value)
-                    }
-                >
-                    <option value="">Inferred by Kick</option>
-                    {COUNTERPARTY_DIRECTION_OVERRIDES.map((each) => (
-                        <option key={each} value={each}>
-                            {COUNTERPARTY_DIRECTION_OVERRIDE_LABELS[each]}
-                        </option>
-                    ))}
-                </select>
             </label>
             {mutation.error !== null && (
                 <ErrorMessageBox error={mutation.error} />

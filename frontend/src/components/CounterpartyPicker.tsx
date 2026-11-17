@@ -18,7 +18,7 @@ export function CounterpartyPicker({
     onSelect,
 }: {
     workspaceId: string;
-    excludeId: string;
+    excludeId?: string;
     selected: PlatformCounterparty | null;
     onSelect: (counterparty: PlatformCounterparty | null) => void;
 }) {

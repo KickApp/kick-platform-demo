@@ -147,7 +147,6 @@ export function WorkspaceCounterpartiesPage() {
                                     <th>Company</th>
                                     <th>Source</th>
                                     <th>Owner</th>
-                                    <th>Treated as</th>
                                     <th>1099</th>
                                     <th>Status</th>
                                 </tr>
