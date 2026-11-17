@@ -315,7 +315,16 @@ intentionally left out:
   (`entityIds`, `accountIds`, `accrualAccountIds`, `classIds`, amounts,
   `status`, `types`, `direction`, the reviewed/unreviewed fields) and the
   `reviews`/`pairedTransfer` relations on both routes are vendored for parity
-  and curl use; the UI only filters by date.
+  and curl use; the UI only filters by date. Every transaction carries a
+  `counterpartyId`, and the UI always asks for `relations=counterparty` so
+  the name comes with the row. Kick reads a counterparty the counterparties
+  routes would not show as null, so `counterpartyId` can be null on a
+  transaction that has one in the Kick app. The Transactions tab edits it
+  inline: `update` with `counterpartyId` assigns one, `null` removes it. The
+  picker searches the counterparty listing, which leaves disabled rows out,
+  because Kick refuses to assign those (400). A transaction matched to a bill
+  or invoice answers 400 too, and a locked one 409; the cell shows Kick's
+  message.
 - Chart of accounts: everything except `get`, for the same reason as
   transactions — the listing already carries the whole row. Note the asymmetry
   in the write surface: `update` renames and/or moves the account into an
@@ -440,9 +449,10 @@ intentionally left out:
   `locked_transactions_found` → `disableCounterpartyToMerge` on merge. The
   delete flags accumulate across retries. The merge body's "can't merge into
   itself" refine is left off like the other top-level refines; the picker
-  excludes the counterparty being merged instead. Transactions on the
-  Platform API carry no counterparty reference, so nothing else invalidates
-  or reads the counterparty queries.
+  excludes the counterparty being merged instead. Transactions embed their
+  counterparty, so every counterparty write also invalidates the transaction
+  queries. There is no upstream `counterpartyIds` filter on the transaction
+  listing, so the counterparty page does not list its transactions.
 - Plaid: the Platform API's `create` takes a `processor_token` and has no
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is
@@ -463,8 +473,9 @@ intentionally left out:
 ## Cash basis only
 
 The demo keeps cash-basis books. `WorkspaceReportsPage` sends
-`ledgerBasis: "cash"` on every report and offers no basis control, and the
-transactions tab reads and writes `accountId` only. `accrualAccountId` and the
+`ledgerBasis: "cash"` on every report and offers no basis control, and of
+the two account fields the transactions tab reads and writes `accountId`
+only. `accrualAccountId` and the
 `accruals` ledger basis stay in `shared/` so the mirror matches upstream, but
 nothing in the UI touches them — do not add an accrual surface without deciding
 what the demo should say about two sets of books.
