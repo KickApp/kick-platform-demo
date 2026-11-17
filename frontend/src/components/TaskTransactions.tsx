@@ -6,6 +6,7 @@ import {
 import { fetchTransactions } from "../api/platform";
 import { formatAmount } from "../lib/format";
 import { EmptyMessage, ErrorMessageBox, LoadingMessage } from "./StatusMessage";
+import { TransactionCounterpartyLabel } from "./TransactionCounterpartyLabel";
 
 /**
  * Reads the transactions a task covers through the transactions listing's
@@ -28,6 +29,7 @@ export function TaskTransactions({
             fetchTransactions({
                 workspaceId,
                 ids: requestedIds,
+                relations: ["counterparty"],
                 limit: PLATFORM_PAGE_LIMIT_MAX,
                 offset: 0,
             }),
@@ -71,6 +73,7 @@ export function TaskTransactions({
                                 <th>Description</th>
                                 <th>Entity</th>
                                 <th className="amount">Amount</th>
+                                <th>Counterparty</th>
                                 <th>Status</th>
                                 <th>Memo</th>
                             </tr>
@@ -89,6 +92,12 @@ export function TaskTransactions({
                                     </td>
                                     <td className="amount">
                                         {formatAmount(transaction.amount)}
+                                    </td>
+                                    <td>
+                                        <TransactionCounterpartyLabel
+                                            transaction={transaction}
+                                            workspaceId={workspaceId}
+                                        />
                                     </td>
                                     <td>
                                         {
