@@ -86,16 +86,16 @@ export const PLATFORM_TASK_MESSAGE_MAX_LENGTH = 10000;
 /**
  * Posts to the main timeline of the task's thread, never as a reply, and
  * without an author: Kick labels it as coming from the Platform API.
- * `visibility` defaults to `shared` upstream.
+ * `visibility` defaults to `shared`.
  */
 export const platformCreateTaskMessageBodySchema = z
     .object({
         content: z.string().trim().min(1).max(PLATFORM_TASK_MESSAGE_MAX_LENGTH),
-        visibility: taskMessageVisibilitySchema.optional(),
+        visibility: taskMessageVisibilitySchema.default("shared"),
     })
     .strict();
 
-export type PlatformCreateTaskMessageBody = z.infer<
+export type PlatformCreateTaskMessageBody = z.input<
     typeof platformCreateTaskMessageBodySchema
 >;
 

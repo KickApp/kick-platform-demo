@@ -87,7 +87,7 @@ export function FinancialAccountRow({
 
     const mutation = useMutation({
         mutationFn: async (write: FinancialAccountWrite) => {
-            const params = { workspaceId, financialAccountId: account.id };
+            const params = { financialAccountId: account.id };
             switch (write.action) {
                 case "update":
                     await updateFinancialAccount({

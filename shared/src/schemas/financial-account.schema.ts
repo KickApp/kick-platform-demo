@@ -16,6 +16,7 @@ export const FINANCIAL_ACCOUNT_TYPES = [
     "line_of_credit",
     "investment",
     "payment_processor",
+    "payroll_processor",
     "cash",
     "other",
 ] as const;
@@ -35,6 +36,7 @@ export const FINANCIAL_ACCOUNT_TYPE_LABELS: Record<
     line_of_credit: "Line of credit",
     investment: "Investment",
     payment_processor: "Payment processor",
+    payroll_processor: "Payroll processor",
     cash: "Cash",
     other: "Other",
 };
@@ -46,6 +48,7 @@ export const FINANCIAL_ACCOUNT_TYPE_LABELS: Record<
 export const FINANCIAL_ACCOUNT_SOURCES = [
     "stripe",
     "gusto",
+    "adp_run",
     "file_import",
     "plaid",
     "mercury",
@@ -54,6 +57,8 @@ export const FINANCIAL_ACCOUNT_SOURCES = [
     "manual",
     "billcom",
     "check",
+    "deposit",
+    "relay",
 ] as const;
 
 export const financialAccountSourceSchema = z.enum(FINANCIAL_ACCOUNT_SOURCES);
@@ -68,6 +73,7 @@ export const FINANCIAL_ACCOUNT_SOURCE_LABELS: Record<
 > = {
     stripe: "Stripe",
     gusto: "Gusto",
+    adp_run: "ADP RUN",
     file_import: "File import",
     plaid: "Plaid",
     mercury: "Mercury",
@@ -76,6 +82,8 @@ export const FINANCIAL_ACCOUNT_SOURCE_LABELS: Record<
     manual: "Manual",
     billcom: "Bill.com",
     check: "Check",
+    deposit: "Deposit",
+    relay: "Relay",
 };
 
 /**
@@ -166,22 +174,19 @@ export type PlatformFinancialAccount = z.infer<
     typeof platformFinancialAccountSchema
 >;
 
-/**
- * Financial accounts are addressed across every entity of a workspace, so the
- * routes are nested under the workspace uuid.
- */
-export const platformFinancialAccountsPathParamsSchema = z.object({
-    workspaceId: z.string().uuid(),
+/** A single account is addressed by its uuid alone. */
+export const platformFinancialAccountPathParamsSchema = z.object({
+    financialAccountId: z.string().uuid(),
 });
 
-export const platformFinancialAccountPathParamsSchema =
-    platformFinancialAccountsPathParamsSchema.extend({
-        financialAccountId: z.string().uuid(),
-    });
-
-/** An entity outside the workspace in `entityIds` answers 400. */
+/**
+ * The listing covers every entity of the workspace named by `workspaceId`; a
+ * workspace outside the organization answers 404 and an entity outside the
+ * workspace in `entityIds` answers 400.
+ */
 export const platformFinancialAccountsListQuerySchema =
     platformPaginationQuerySchema.extend({
+        workspaceId: z.string().uuid(),
         entityIds: uuidArrayQueryParamSchema,
     });
 
@@ -247,10 +252,10 @@ export type PlatformFinancialAccountMoveBody = z.infer<
  */
 export const platformFinancialAccountDeleteQuerySchema = z
     .object({
-        forceDeletion: z.enum(["true", "false"]).optional(),
+        forceDeletion: z.enum(["true", "false"]).default("false"),
     })
     .strict();
 
-export type PlatformFinancialAccountDeleteQuery = z.infer<
+export type PlatformFinancialAccountDeleteQuery = z.input<
     typeof platformFinancialAccountDeleteQuerySchema
 >;

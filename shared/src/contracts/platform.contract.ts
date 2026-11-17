@@ -63,6 +63,7 @@ import {
     platformEntitiesListResponseSchema,
     platformEntityPathParamsSchema,
     platformEntityResponseSchema,
+    updatePlatformEntityBodySchema,
 } from "../schemas/entity.schema";
 import {
     platformLockResponseSchema,
@@ -77,7 +78,6 @@ import {
     platformFinancialAccountResponseSchema,
     platformFinancialAccountsListQuerySchema,
     platformFinancialAccountsListResponseSchema,
-    platformFinancialAccountsPathParamsSchema,
     platformFinancialAccountUpdateBodySchema,
 } from "../schemas/financial-account.schema";
 import {
@@ -99,6 +99,7 @@ import {
 } from "../schemas/plaid-connection.schema";
 import {
     platformTransactionPathParamsSchema,
+    platformTransactionRelationsQuerySchema,
     platformTransactionResponseSchema,
     platformTransactionsListQuerySchema,
     platformTransactionsListResponseSchema,
@@ -143,8 +144,9 @@ const c = initContract();
  * (base `https://use-dev.kick.co/api`) and the frontend's client against the
  * BFF (base `/api`).
  *
- * Error responses are declared as the superset {400, 401, 404, 409, 422, 429}
- * on every route so the BFF can pass upstream errors through uniformly.
+ * Error responses are declared as the superset {400, 401, 403, 404, 409, 422,
+ * 429} on every route so the BFF can pass upstream errors through uniformly;
+ * Kick answers 403 to writes on a workspace on the Read-only plan.
  * Deleting a Plaid connection, updating a transaction dated on or before the
  * entity's lock date, deleting an account that has journal entries and a
  * blocked account merge, a second accounting migration and triggering its rule
@@ -162,6 +164,7 @@ const c = initContract();
 const errorResponses = {
     400: errorMessageSchema,
     401: errorMessageSchema,
+    403: errorMessageSchema,
     404: errorMessageSchema,
     409: errorMessageSchema,
     422: errorMessageSchema,
@@ -197,8 +200,8 @@ const workspacesContract = c.router(
                 ...errorResponses,
             },
         },
-        // Changes the plan and nothing else — that is the whole update body
-        // upstream. The organization must own the workspace billing.
+        // Changes the plan and/or replaces the metadata. Changing the plan
+        // requires the organization to own the workspace billing.
         update: {
             method: "PATCH",
             path: "/:workspaceId",
@@ -232,6 +235,11 @@ const organizationContract = c.router(
     { pathPrefix: "/platform/v1/organization" },
 );
 
+/**
+ * Entities are listed per workspace (`workspaceId` query) and created in one
+ * (`workspaceId` body). The upstream `delete` (permanent, with every account,
+ * transaction and document of the entity) is deliberately not vendored.
+ */
 const entitiesContract = c.router(
     {
         list: {
@@ -256,6 +264,16 @@ const entitiesContract = c.router(
             method: "GET",
             path: "/:entityId",
             pathParams: platformEntityPathParamsSchema,
+            responses: {
+                200: platformEntityResponseSchema,
+                ...errorResponses,
+            },
+        },
+        update: {
+            method: "PATCH",
+            path: "/:entityId",
+            pathParams: platformEntityPathParamsSchema,
+            body: updatePlatformEntityBodySchema,
             responses: {
                 200: platformEntityResponseSchema,
                 ...errorResponses,
@@ -328,6 +346,7 @@ const transactionsContract = c.router(
             method: "PATCH",
             path: "/:transactionId",
             pathParams: platformTransactionPathParamsSchema,
+            query: platformTransactionRelationsQuerySchema,
             body: platformTransactionUpdateBodySchema,
             responses: {
                 200: platformTransactionResponseSchema,
@@ -339,10 +358,10 @@ const transactionsContract = c.router(
 );
 
 /**
- * Financial accounts of every source (integrations, file imports, manual) are
- * addressed across every entity of a workspace, so the routes are nested under
- * the workspace uuid. There is no upstream `get`: the listing carries the
- * whole row. `update` touches only the fields present in the body, `move`
+ * Financial accounts of every source (integrations, file imports, manual).
+ * `list` covers every entity of the workspace given by its `workspaceId`
+ * query; the other routes address a single account by its uuid. There is no
+ * upstream `get`: the listing carries the whole row. `update` touches only the fields present in the body, `move`
  * reassigns the account to another entity of the same workspace, and `delete`
  * is permanent and takes the account's transactions with it.
  */
@@ -351,7 +370,6 @@ const financialAccountsContract = c.router(
         list: {
             method: "GET",
             path: "",
-            pathParams: platformFinancialAccountsPathParamsSchema,
             query: platformFinancialAccountsListQuerySchema,
             responses: {
                 200: platformFinancialAccountsListResponseSchema,
@@ -390,9 +408,7 @@ const financialAccountsContract = c.router(
             },
         },
     },
-    {
-        pathPrefix: "/platform/v1/workspaces/:workspaceId/financial-accounts",
-    },
+    { pathPrefix: "/platform/v1/financial-accounts" },
 );
 
 /**
@@ -785,10 +801,10 @@ const reportsContract = c.router(
 );
 
 /**
- * Locks span the organization's client workspaces rather than nesting under a
- * workspace or entity: `list` narrows by `workspaceIds`/`entityIds` in the
- * query and leaves unlocked entities out, and `set` addresses its entity in the
- * body. A null `date` unlocks the entity; a changed date fires the
+ * Locks sit at the organization level rather than nesting under a workspace or
+ * entity path: `list` takes a required `workspaceId` (plus optional
+ * `entityIds`) in the query and leaves unlocked entities out, and `set`
+ * addresses its entity in the body. A null `date` unlocks the entity; a changed date fires the
  * `entity.lock_date.changed` webhook.
  */
 const locksContract = c.router(

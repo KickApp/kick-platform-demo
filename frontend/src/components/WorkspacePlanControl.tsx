@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-    WORKSPACE_ASSIGNABLE_PLANS,
+    WORKSPACE_PLANS,
     WORKSPACE_PLAN_LABELS,
     type PlatformWorkspace,
 } from "@kick-demo/shared";
@@ -25,7 +25,7 @@ export function WorkspacePlanControl({
         queryFn: fetchOrganization,
     });
 
-    const assignablePlans = WORKSPACE_ASSIGNABLE_PLANS.filter((candidate) =>
+    const assignablePlans = WORKSPACE_PLANS.filter((candidate) =>
         (organizationQuery.data?.allowedPlans ?? []).includes(candidate),
     );
 
@@ -43,7 +43,7 @@ export function WorkspacePlanControl({
 
     const displayedPlan =
         mutation.isPending && mutation.variables !== undefined
-            ? mutation.variables.body.plan
+            ? (mutation.variables.body.plan ?? workspace.plan)
             : workspace.plan;
 
     // A workspace can sit on a plan the organization cannot assign (e.g.

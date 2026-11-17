@@ -20,13 +20,13 @@ export const platformLockSchema = z.object({
 export type PlatformLock = z.infer<typeof platformLockSchema>;
 
 /**
- * Locks span the organization, so the list narrows by workspace and entity
- * uuids in the query; when both are given a lock must match both. Unlocked
- * entities are left out of the listing.
+ * The list is scoped to one workspace, optionally narrowed to some of its
+ * entities; an entity outside the workspace answers 400. Unlocked entities
+ * are left out of the listing.
  */
 export const platformLocksListQuerySchema =
     platformPaginationQuerySchema.extend({
-        workspaceIds: uuidArrayQueryParamSchema,
+        workspaceId: z.string().uuid(),
         entityIds: uuidArrayQueryParamSchema,
     });
 

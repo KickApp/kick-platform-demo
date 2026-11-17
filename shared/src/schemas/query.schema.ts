@@ -7,13 +7,22 @@ import { z } from "zod";
  */
 export const arrayQueryParamSchema = <TItem extends z.ZodTypeAny>(
     itemSchema: TItem,
-) =>
-    z.preprocess((value) => {
-        if (value === undefined || value === null || value === "") {
-            return undefined;
-        }
-        return Array.isArray(value) ? value : [value];
-    }, z.array(itemSchema).min(1).optional());
+    { maxItems }: { maxItems?: number } = {},
+) => {
+    const arraySchema = z.array(itemSchema).min(1);
+    return z.preprocess(
+        (value) => {
+            if (value === undefined || value === null || value === "") {
+                return undefined;
+            }
+            return Array.isArray(value) ? value : [value];
+        },
+        (maxItems === undefined
+            ? arraySchema
+            : arraySchema.max(maxItems)
+        ).optional(),
+    );
+};
 
 export const uuidArrayQueryParamSchema = arrayQueryParamSchema(
     z.string().uuid(),

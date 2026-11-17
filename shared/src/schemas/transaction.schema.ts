@@ -3,7 +3,10 @@ import {
     platformPaginationQuerySchema,
     platformPaginationSchema,
 } from "./pagination.schema";
-import { uuidArrayQueryParamSchema } from "./query.schema";
+import {
+    arrayQueryParamSchema,
+    uuidArrayQueryParamSchema,
+} from "./query.schema";
 
 /**
  * Provenance of a transaction, i.e. where the Platform API sourced it from.
@@ -16,6 +19,12 @@ export const TRANSACTION_TYPES = [
     "mercury",
     "paypal",
     "manual",
+    "check",
+    "deposit",
+    "gusto",
+    "billcom",
+    "adp_run",
+    "relay",
 ] as const;
 
 export const transactionTypeSchema = z.enum(TRANSACTION_TYPES);
@@ -30,6 +39,12 @@ export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
     mercury: "Mercury",
     paypal: "PayPal",
     manual: "Manual",
+    check: "Check",
+    deposit: "Deposit",
+    gusto: "Gusto",
+    billcom: "Bill.com",
+    adp_run: "ADP RUN",
+    relay: "Relay",
 };
 
 export const TRANSACTION_STATUSES = ["pending", "completed", "failed"] as const;
@@ -45,10 +60,41 @@ export const TRANSACTION_STATUS_LABELS: Record<TransactionStatus, string> = {
 };
 
 /**
- * Wire shape of a Platform API transaction. `date` is the calendar day the
- * money moved, as a date-only string (YYYY-MM-DD).
+ * Transaction fields that can be marked as reviewed, named after the wire
+ * fields they cover (`accountId` → `account`, `classIds` → `classes`, ...).
  */
-export const platformTransactionSchema = z.object({
+export const TRANSACTION_REVIEW_FIELDS = [
+    "account",
+    "accrualAccount",
+    "classes",
+    "counterparty",
+    "entity",
+    "memo",
+] as const;
+
+export const transactionReviewFieldSchema = z.enum(TRANSACTION_REVIEW_FIELDS);
+
+export type TransactionReviewField = z.infer<
+    typeof transactionReviewFieldSchema
+>;
+
+/** `reviewedAt` is an ISO-8601 datetime string. */
+export const platformTransactionReviewSchema = z.object({
+    field: transactionReviewFieldSchema,
+    reviewedAt: z.string(),
+});
+
+export type PlatformTransactionReview = z.infer<
+    typeof platformTransactionReviewSchema
+>;
+
+/**
+ * A transaction without its relations. `date` is the calendar day the money
+ * moved, as a date-only string (YYYY-MM-DD). `pairedTransferId` is the other
+ * side of a transfer between two accounts of the workspace, null when the
+ * transaction is not paired.
+ */
+export const platformPairedTransactionSchema = z.object({
     id: z.string().uuid(),
     entityId: z.string().uuid(),
     date: z.string().date(),
@@ -61,7 +107,20 @@ export const platformTransactionSchema = z.object({
     accrualAccountId: z.string().uuid().nullable(),
     isBusiness: z.boolean(),
     classIds: z.array(z.string().uuid()),
+    pairedTransferId: z.string().uuid().nullable(),
 });
+
+/**
+ * Wire shape of a Platform API transaction. `reviews` (one entry per reviewed
+ * field, sorted by field) and `pairedTransfer` are present only when asked
+ * for through `relations`.
+ */
+export const platformTransactionSchema = platformPairedTransactionSchema.extend(
+    {
+        reviews: z.array(platformTransactionReviewSchema).optional(),
+        pairedTransfer: platformPairedTransactionSchema.nullable().optional(),
+    },
+);
 
 export type PlatformTransaction = z.infer<typeof platformTransactionSchema>;
 
@@ -78,19 +137,55 @@ export const platformTransactionPathParamsSchema =
         transactionId: z.string().uuid(),
     });
 
+export const TRANSACTION_RELATIONS = ["reviews", "pairedTransfer"] as const;
+
+export type TransactionRelation = (typeof TRANSACTION_RELATIONS)[number];
+
+const transactionRelationsQueryParamSchema = arrayQueryParamSchema(
+    z.enum(TRANSACTION_RELATIONS),
+);
+
+export const platformTransactionRelationsQuerySchema = z
+    .object({
+        relations: transactionRelationsQueryParamSchema,
+    })
+    .strict();
+
+export const TRANSACTION_DIRECTIONS = ["money_in", "money_out"] as const;
+
+export const REVIEW_FIELDS_MODES = ["any", "every"] as const;
+
 /**
  * `startDate`/`endDate` are inclusive calendar days. `ids` fetches specific
  * transactions, at most 100 per request; ids that don't match a visible
- * transaction of the workspace are left out rather than rejected.
+ * transaction of the workspace are left out rather than rejected. An entity,
+ * account or class outside the workspace answers 400. `minAmount` and
+ * `maxAmount` compare absolute amounts; `direction` picks the sign.
+ * `reviewedFields` combine per `reviewedFieldsMode` (default `any`) and
+ * `unreviewedFields` per `unreviewedFieldsMode` (default `every`).
  */
 export const platformTransactionsListQuerySchema =
     platformPaginationQuerySchema.extend({
+        relations: transactionRelationsQueryParamSchema,
         startDate: z.string().date().optional(),
         endDate: z.string().date().optional(),
-        ids: uuidArrayQueryParamSchema,
+        ids: arrayQueryParamSchema(z.string().uuid(), { maxItems: 100 }),
+        entityIds: uuidArrayQueryParamSchema,
+        accountIds: uuidArrayQueryParamSchema,
+        accrualAccountIds: uuidArrayQueryParamSchema,
+        classIds: uuidArrayQueryParamSchema,
+        minAmount: z.coerce.number().optional(),
+        maxAmount: z.coerce.number().optional(),
+        status: transactionStatusSchema.optional(),
+        types: arrayQueryParamSchema(transactionTypeSchema),
+        direction: z.enum(TRANSACTION_DIRECTIONS).optional(),
+        reviewedFields: arrayQueryParamSchema(transactionReviewFieldSchema),
+        reviewedFieldsMode: z.enum(REVIEW_FIELDS_MODES).default("any"),
+        unreviewedFields: arrayQueryParamSchema(transactionReviewFieldSchema),
+        unreviewedFieldsMode: z.enum(REVIEW_FIELDS_MODES).default("every"),
     });
 
-export type PlatformTransactionsListQuery = z.infer<
+export type PlatformTransactionsListQuery = z.input<
     typeof platformTransactionsListQuerySchema
 >;
 
@@ -120,12 +215,14 @@ export type PlatformTransactionResponse = z.infer<
  * The demo's UI only ever sends `accountId`, but the whole upstream body is
  * vendored so `shared/` stays a faithful mirror of the Platform API.
  */
-export const platformTransactionUpdateBodySchema = z.object({
-    classIds: z.array(z.string().uuid()).max(10).optional(),
-    memo: z.string().max(1000).nullable().optional(),
-    accountId: z.string().uuid().nullable().optional(),
-    accrualAccountId: z.string().uuid().nullable().optional(),
-});
+export const platformTransactionUpdateBodySchema = z
+    .object({
+        classIds: z.array(z.string().uuid()).max(10).optional(),
+        memo: z.string().max(1000).nullable().optional(),
+        accountId: z.string().uuid().nullable().optional(),
+        accrualAccountId: z.string().uuid().nullable().optional(),
+    })
+    .strict();
 
 export type PlatformTransactionUpdateBody = z.infer<
     typeof platformTransactionUpdateBodySchema
