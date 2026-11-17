@@ -31,6 +31,7 @@ import {
     type PlatformTasksListQuery,
     type PlatformTransactionUpdateBody,
     type PlatformUpdateAccountBody,
+    type TransactionRelation,
     type PlatformUpdateAccountGroupBody,
     type ReportGroupBy,
     type UpdatePlatformWorkspaceBody,
@@ -162,6 +163,7 @@ export async function fetchTransactions(query: {
     startDate?: string;
     endDate?: string;
     ids?: string[];
+    relations?: TransactionRelation[];
     limit: number;
     offset: number;
 }) {

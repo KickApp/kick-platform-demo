@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { platformCounterpartySchema } from "./counterparty.schema";
 import {
     platformPaginationQuerySchema,
     platformPaginationSchema,
@@ -92,7 +93,9 @@ export type PlatformTransactionReview = z.infer<
  * A transaction without its relations. `date` is the calendar day the money
  * moved, as a date-only string (YYYY-MM-DD). `pairedTransferId` is the other
  * side of a transfer between two accounts of the workspace, null when the
- * transaction is not paired.
+ * transaction is not paired. `counterpartyId` is null when no counterparty is
+ * assigned, and also when the assigned one isn't visible to the organization
+ * through the counterparties routes.
  */
 export const platformPairedTransactionSchema = z.object({
     id: z.string().uuid(),
@@ -108,17 +111,20 @@ export const platformPairedTransactionSchema = z.object({
     isBusiness: z.boolean(),
     classIds: z.array(z.string().uuid()),
     pairedTransferId: z.string().uuid().nullable(),
+    counterpartyId: z.string().uuid().nullable(),
 });
 
 /**
  * Wire shape of a Platform API transaction. `reviews` (one entry per reviewed
- * field, sorted by field) and `pairedTransfer` are present only when asked
- * for through `relations`.
+ * field, sorted by field), `pairedTransfer` and `counterparty` (the row
+ * `counterpartyId` points at, in the counterparties routes' shape) are
+ * present only when asked for through `relations`.
  */
 export const platformTransactionSchema = platformPairedTransactionSchema.extend(
     {
         reviews: z.array(platformTransactionReviewSchema).optional(),
         pairedTransfer: platformPairedTransactionSchema.nullable().optional(),
+        counterparty: platformCounterpartySchema.nullable().optional(),
     },
 );
 
@@ -137,7 +143,11 @@ export const platformTransactionPathParamsSchema =
         transactionId: z.string().uuid(),
     });
 
-export const TRANSACTION_RELATIONS = ["reviews", "pairedTransfer"] as const;
+export const TRANSACTION_RELATIONS = [
+    "reviews",
+    "pairedTransfer",
+    "counterparty",
+] as const;
 
 export type TransactionRelation = (typeof TRANSACTION_RELATIONS)[number];
 
@@ -211,9 +221,12 @@ export type PlatformTransactionResponse = z.infer<
  * so the demo can change a transaction's account without reading and resending
  * the rest. `null` is the explicit "clear this" value. Inside a locked
  * bookkeeping period only `memo` can be changed; anything else answers 409.
+ * `counterpartyId` answers 400 for a disabled, unknown or invisible
+ * counterparty, and for a transaction matched to a bill or invoice.
  *
- * The demo's UI only ever sends `accountId`, but the whole upstream body is
- * vendored so `shared/` stays a faithful mirror of the Platform API.
+ * The demo's UI only ever sends `accountId` or `counterpartyId`, but the whole
+ * upstream body is vendored so `shared/` stays a faithful mirror of the
+ * Platform API.
  */
 export const platformTransactionUpdateBodySchema = z
     .object({
@@ -221,6 +234,7 @@ export const platformTransactionUpdateBodySchema = z
         memo: z.string().max(1000).nullable().optional(),
         accountId: z.string().uuid().nullable().optional(),
         accrualAccountId: z.string().uuid().nullable().optional(),
+        counterpartyId: z.string().uuid().nullable().optional(),
     })
     .strict();
 
