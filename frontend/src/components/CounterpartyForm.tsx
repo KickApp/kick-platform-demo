@@ -179,6 +179,9 @@ export function CounterpartyForm({
             await queryClient.invalidateQueries({
                 queryKey: ["counterparties", workspaceId],
             });
+            await queryClient.invalidateQueries({
+                queryKey: ["transactions", workspaceId],
+            });
         },
     });
 

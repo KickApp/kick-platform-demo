@@ -74,6 +74,9 @@ export function CounterpartyDeleteActions({
             await queryClient.invalidateQueries({
                 queryKey: ["counterparties", workspaceId],
             });
+            await queryClient.invalidateQueries({
+                queryKey: ["transactions", workspaceId],
+            });
             if (flags.disableInsteadOfDelete) {
                 await queryClient.invalidateQueries({
                     queryKey: ["counterparty", workspaceId, counterparty.id],
