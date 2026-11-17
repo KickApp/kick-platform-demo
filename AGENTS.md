@@ -262,8 +262,7 @@ with most new task-producing features — with `TASK_STATUSES` next to it. In
 `counterparty.schema.ts`, `COUNTERPARTY_SOURCES` grows with Kick's
 integrations like the financial account sources, and
 `COUNTERPARTY_CONFLICT_REASONS` with every new way a counterparty write can
-be blocked; `COUNTERPARTY_DIRECTION_OVERRIDES` and
-`FEDERAL_TAX_CLASSIFICATIONS` are steadier.
+be blocked; `FEDERAL_TAX_CLASSIFICATIONS` is steadier.
 
 ## Vendored resources and deliberate gaps
 
@@ -432,7 +431,7 @@ intentionally left out:
   new one. That is why the create form sends only the fields filled in and
   hands the counterparty page a router-state notice saying which happened
   (`frontend/src/lib/counterparty-notice.ts`); the form asks only for name,
-  company, email and direction, and the page holds every other field. The
+  company and email, and the page holds every other field. The
   directory mixes
   the workspace's own counterparties with global Kick entries it uses
   (`isGlobal`). Unlike the chart of accounts, the wire shape says which rows

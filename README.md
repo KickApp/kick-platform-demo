@@ -205,7 +205,7 @@ curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties?
 # duplicate_name when a verified counterparty has the name
 curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties" \
   -H "Content-Type: application/json" \
-  -d '{"name": "Acme Supplies", "email": "billing@acme.example", "directionOverride": "vendor"}'
+  -d '{"name": "Acme Supplies", "email": "billing@acme.example"}'
 
 # Retrieve one counterparty (disabled ones included)
 curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties/<uuid>"
@@ -215,7 +215,7 @@ curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties/
 # isDisabled disables or re-enables it
 curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties/<uuid>" \
   -H "Content-Type: application/json" \
-  -d '{"email": "billing@acme.example", "directionOverride": "vendor", "isEligible1099": true, "website": null}'
+  -d '{"email": "billing@acme.example", "isEligible1099": true, "website": null}'
 
 # Delete a counterparty, or remove a global one from the workspace. A 409's
 # reason says what blocks it: transactions_found (retry with force=true) or

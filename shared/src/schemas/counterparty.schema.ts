@@ -34,25 +34,6 @@ export const COUNTERPARTY_SOURCE_LABELS: Record<CounterpartySource, string> = {
     enrichment: "Detected by Kick",
 };
 
-/** Null on the wire lets Kick infer the direction from the counterparty's transactions. */
-export const COUNTERPARTY_DIRECTION_OVERRIDES = ["vendor", "customer"] as const;
-
-export const counterpartyDirectionOverrideSchema = z.enum(
-    COUNTERPARTY_DIRECTION_OVERRIDES,
-);
-
-export type CounterpartyDirectionOverride = z.infer<
-    typeof counterpartyDirectionOverrideSchema
->;
-
-export const COUNTERPARTY_DIRECTION_OVERRIDE_LABELS: Record<
-    CounterpartyDirectionOverride,
-    string
-> = {
-    vendor: "Vendor",
-    customer: "Customer",
-};
-
 export const FEDERAL_TAX_CLASSIFICATIONS = [
     "individual",
     "partnership",
@@ -109,7 +90,6 @@ export const platformCounterpartySchema = z.object({
     state: z.string().nullable(),
     postalCode: z.string().nullable(),
     country: z.string().nullable(),
-    directionOverride: counterpartyDirectionOverrideSchema.nullable(),
     isEligible1099: z.boolean().nullable(),
     federalTaxClassification: federalTaxClassificationSchema.nullable(),
     note: z.string().nullable(),
@@ -199,9 +179,6 @@ export const platformCounterpartyUpdateBodySchema = z
         state: optionalTextSchema,
         postalCode: optionalTextSchema,
         country: optionalTextSchema,
-        directionOverride: counterpartyDirectionOverrideSchema
-            .nullable()
-            .optional(),
         isEligible1099: z.boolean().nullable().optional(),
         federalTaxClassification: federalTaxClassificationSchema
             .nullable()
