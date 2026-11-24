@@ -82,7 +82,7 @@ export function TaskTransactions({
                             {transactions.map((transaction) => (
                                 <tr key={transaction.id}>
                                     <td>{transaction.date}</td>
-                                    <td>{transaction.bankDescription}</td>
+                                    <td>{transaction.description}</td>
                                     <td>
                                         {entityName(transaction.entityId) ?? (
                                             <span className="mono">
