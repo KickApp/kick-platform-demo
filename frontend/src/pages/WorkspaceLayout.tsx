@@ -20,6 +20,7 @@ const TABS = [
     { path: "transactions", label: "Transactions" },
     { path: "counterparties", label: "Counterparties" },
     { path: "catalog-items", label: "Catalog items" },
+    { path: "invoices", label: "Invoices" },
     { path: "tasks", label: "Tasks" },
     { path: "task-groups", label: "Task groups" },
     { path: "locks", label: "Locks" },
