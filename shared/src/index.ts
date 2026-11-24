@@ -25,4 +25,6 @@ export * from "./schemas/task-message.schema";
 export * from "./schemas/task-group.schema";
 export * from "./schemas/report.schema";
 export * from "./schemas/counterparty.schema";
+export * from "./schemas/catalog-item.schema";
+export * from "./schemas/invoice.schema";
 export * from "./schemas/webhook-event.schema";
