@@ -196,6 +196,12 @@ curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transa
   -H "Content-Type: application/json" \
   -d '{"counterpartyId": "<uuid>"}'
 
+# Override a transaction's description (null or "" clears it; 400 for a line of
+# a split transaction, 409 when locked)
+curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/transactions/<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"overrideDescription": "Office rent"}'
+
 # List a workspace's counterparties, closest matches first when searching
 # (disabled ones only with includeDisabled=true)
 curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties?search=acme&includeDisabled=true"
@@ -671,6 +677,21 @@ offered because Kick refuses to assign them, and a transaction matched to a bill
 or invoice (`400`) or in a locked period (`409`) shows Kick's message under the
 cell. Renaming, disabling, merging or deleting a counterparty refreshes the
 transactions.
+
+## Transaction descriptions
+
+A transaction carries three descriptions: `bankDescription` as it arrived from
+the bank or provider, an optional `overrideDescription`, and `description`,
+which is the override when one is set and the bank description otherwise. The
+Description column on the transactions tab and the task page show
+`description`. On the transactions tab, the bank description is shown
+underneath when an override replaces it. The "Override" (or "Edit override")
+button opens a text field. Saving sends `PATCH .../transactions/:transactionId`
+with only `overrideDescription`, and "Reset to bank description" (or saving an
+empty field) sends `null`. The wire shape doesn't say which transactions are
+lines of a split, whose labels are edited in Kick, so the button is offered on
+every row. Kick refuses those with `400`, refuses a locked period with `409`,
+and its message is shown under the cell.
 
 ## Accounting migration
 

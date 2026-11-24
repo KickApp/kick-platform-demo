@@ -96,6 +96,12 @@ export type PlatformTransactionReview = z.infer<
  * transaction is not paired. `counterpartyId` is null when no counterparty is
  * assigned, and also when the assigned one isn't visible to the organization
  * through the counterparties routes.
+ *
+ * `bankDescription` is the text as it arrived from the bank or provider, and
+ * `overrideDescription` a custom replacement, null when none is set.
+ * `description` is the one to show: the override when set, otherwise the bank
+ * description. On a line of a split transaction `overrideDescription` is the
+ * line's label, which is edited in Kick and can't be written here.
  */
 export const platformPairedTransactionSchema = z.object({
     id: z.string().uuid(),
@@ -103,6 +109,8 @@ export const platformPairedTransactionSchema = z.object({
     date: z.string().date(),
     amount: z.number(),
     bankDescription: z.string(),
+    description: z.string(),
+    overrideDescription: z.string().nullable(),
     memo: z.string().nullable(),
     type: transactionTypeSchema,
     status: transactionStatusSchema,
@@ -223,8 +231,11 @@ export type PlatformTransactionResponse = z.infer<
  * bookkeeping period only `memo` can be changed; anything else answers 409.
  * `counterpartyId` answers 400 for a disabled, unknown or invisible
  * counterparty, and for a transaction matched to a bill or invoice.
+ * `overrideDescription` is trimmed by Kick, `null` or an empty string clears
+ * it, and a line of a split transaction answers 400.
  *
- * The demo's UI only ever sends `accountId` or `counterpartyId`, but the whole
+ * The demo's UI only ever sends `accountId`, `counterpartyId` or
+ * `overrideDescription`, but the whole
  * upstream body is vendored so `shared/` stays a faithful mirror of the
  * Platform API.
  */
@@ -232,6 +243,7 @@ export const platformTransactionUpdateBodySchema = z
     .object({
         classIds: z.array(z.string().uuid()).max(10).optional(),
         memo: z.string().max(1000).nullable().optional(),
+        overrideDescription: z.string().max(1000).nullable().optional(),
         accountId: z.string().uuid().nullable().optional(),
         accrualAccountId: z.string().uuid().nullable().optional(),
         counterpartyId: z.string().uuid().nullable().optional(),
