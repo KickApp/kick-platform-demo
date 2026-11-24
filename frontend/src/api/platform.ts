@@ -42,7 +42,7 @@ import { ApiError, CounterpartyConflictError, toApiError } from "./errors";
  * Client against the demo BFF, which mirrors the Kick Platform API contract
  * under `/api` (proxied to the backend by the Vite dev server).
  */
-const api = initClient(platformContract, { baseUrl: "/api" });
+export const api = initClient(platformContract, { baseUrl: "/api" });
 
 /**
  * The organization behind the access token; its `allowedPlans` is what every
