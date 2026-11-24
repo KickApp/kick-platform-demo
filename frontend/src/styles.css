@@ -627,6 +627,7 @@ textarea:focus {
 .summary-value-text {
     font-size: 14px;
     font-weight: 500;
+    overflow-wrap: anywhere;
 }
 
 .task-description {

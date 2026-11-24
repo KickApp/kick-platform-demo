@@ -230,7 +230,7 @@ export function WorkspaceInvoicePage() {
 
                     {isEditableDraft(invoice) && (
                         <InvoiceDraftEditor
-                            key={invoice.updatedAt}
+                            key={`draft-${invoice.updatedAt}`}
                             workspaceId={workspaceId}
                             invoice={invoice}
                             accounts={accountsFor(invoice.entityId)}
@@ -238,7 +238,7 @@ export function WorkspaceInvoicePage() {
                     )}
 
                     <InvoiceDetailsForm
-                        key={invoice.updatedAt}
+                        key={`details-${invoice.updatedAt}`}
                         workspaceId={workspaceId}
                         invoice={invoice}
                     />

@@ -20,6 +20,10 @@ const TRANSITION_LABELS: Record<InvoiceStatus, string> = {
     uncollectable: "Write off as uncollectable",
 };
 
+function transitionLabel(from: InvoiceStatus | null, to: InvoiceStatus) {
+    return to === "open" && from !== "draft" ? "Reopen" : TRANSITION_LABELS[to];
+}
+
 function statusDateField(
     status: InvoiceStatus,
     date: string,
@@ -127,7 +131,7 @@ export function InvoiceStatusActions({
                     >
                         {mutation.isPending && mutation.variables === status
                             ? "Saving…"
-                            : TRANSITION_LABELS[status]}
+                            : transitionLabel(invoice.status, status)}
                     </button>
                 ))}
             </div>
