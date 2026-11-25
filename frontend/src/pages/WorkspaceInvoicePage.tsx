@@ -8,6 +8,7 @@ import { InvoiceDraftEditor } from "../components/InvoiceDraftEditor";
 import { InvoiceLinesTable } from "../components/InvoiceLinesTable";
 import { InvoiceStatusActions } from "../components/InvoiceStatusActions";
 import { InvoiceStatusBadge } from "../components/InvoiceStatusBadge";
+import { SendInvoiceEmailForm } from "../components/SendInvoiceEmailForm";
 import {
     EmptyMessage,
     ErrorMessageBox,
@@ -15,6 +16,7 @@ import {
 } from "../components/StatusMessage";
 import { formatDateTime } from "../lib/format";
 import {
+    canSendInvoice,
     formatIsoDay,
     hasInvoicePdf,
     invalidateInvoiceQueries,
@@ -89,8 +91,9 @@ function DeleteInvoiceButton({
 /**
  * One invoice through the Platform API's `get`, with the writes its source
  * and status allow: the full draft editor for a draft created in Kick, the
- * fields that stay writable afterwards, the status transitions, and delete
- * for a deletable draft. A provider-owned invoice only takes a memo.
+ * fields that stay writable afterwards, the status transitions, sending a
+ * draft or open one by email, and delete for a deletable draft. A
+ * provider-owned invoice only takes a memo.
  */
 export function WorkspaceInvoicePage() {
     const { workspaceId } = useWorkspaceContext();
@@ -238,6 +241,14 @@ export function WorkspaceInvoicePage() {
                         workspaceId={workspaceId}
                         invoice={invoice}
                     />
+
+                    {canSendInvoice(invoice) && (
+                        <SendInvoiceEmailForm
+                            key={`send-${invoice.id}`}
+                            workspaceId={workspaceId}
+                            invoice={invoice}
+                        />
+                    )}
 
                     {isEditableDraft(invoice) && (
                         <InvoiceDraftEditor

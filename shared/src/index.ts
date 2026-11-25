@@ -27,4 +27,5 @@ export * from "./schemas/report.schema";
 export * from "./schemas/counterparty.schema";
 export * from "./schemas/catalog-item.schema";
 export * from "./schemas/invoice.schema";
+export * from "./schemas/invoice-email.schema";
 export * from "./schemas/webhook-event.schema";

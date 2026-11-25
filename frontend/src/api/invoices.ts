@@ -1,5 +1,6 @@
 import type {
     PlatformInvoiceCreateBody,
+    PlatformInvoiceSendBody,
     PlatformInvoicesListQuery,
     PlatformInvoiceUpdateBody,
 } from "@kick-demo/shared";
@@ -36,7 +37,10 @@ export async function fetchInvoice({
     throw toApiError(result);
 }
 
-/** No email is sent; `status: "open"` issues it and posts its entries. */
+/**
+ * No email is sent (see {@link sendInvoice}); `status: "open"` issues it and
+ * posts its entries.
+ */
 export async function createInvoice({
     workspaceId,
     body,
@@ -69,6 +73,29 @@ export async function updateInvoice({
     });
     if (result.status === 200) {
         return result.body.invoice;
+    }
+    throw toApiError(result);
+}
+
+/**
+ * Emails a `manual` draft or open invoice; a draft is issued once its email
+ * goes out. Blank fields fall back to what Kick saved on the invoice.
+ */
+export async function sendInvoice({
+    workspaceId,
+    invoiceId,
+    body,
+}: {
+    workspaceId: string;
+    invoiceId: string;
+    body: PlatformInvoiceSendBody;
+}) {
+    const result = await api.invoices.send({
+        params: { workspaceId, invoiceId },
+        body,
+    });
+    if (result.status === 200) {
+        return result.body;
     }
     throw toApiError(result);
 }

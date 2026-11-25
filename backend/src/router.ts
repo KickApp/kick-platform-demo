@@ -1,5 +1,6 @@
 import { initServer } from "@ts-rest/express";
 import {
+    errorMessageSchema,
     platformContract,
     platformCounterpartyConflictSchema,
     platformMergeAccountsBlockedResponseSchema,
@@ -709,6 +710,21 @@ export const platformRouter = s.router(platformContract, {
             const result = await kickClient.invoices.update({ params, body });
             if (result.status === 200) {
                 return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        // 503 is declared on this route only, so it is relayed here rather
+        // than by forwardUpstreamError, which serves every route.
+        send: async ({ params, body }) => {
+            const result = await kickClient.invoices.send({ params, body });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            if (result.status === 503) {
+                const parsedBody = errorMessageSchema.safeParse(result.body);
+                if (parsedBody.success) {
+                    return { status: 503, body: parsedBody.data };
+                }
             }
             return forwardUpstreamError(result);
         },

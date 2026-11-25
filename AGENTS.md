@@ -95,7 +95,10 @@ flows:
   ineligible workspace answer 422, and writes on a workspace on the
   Read-only plan answer 403, as do catalog items and invoices on a plan
   without invoicing. The contract declares the same error superset
-  on every route.
+  on every route. The invoice `send` route alone also declares 503 (Kick
+  couldn't run its outbound email check); its handler relays that itself,
+  because widening `forwardUpstreamError` to 503 would break the typing of
+  every other route.
   Two kinds of 409 body are richer than plain `{ message }`: the account
   merge's carries structured blockers, and the counterparty writes' carries a
   `reason`. Their handlers go through `forwardConflictOrUpstreamError` with
@@ -277,12 +280,14 @@ integrations like the financial account sources, and
 `COUNTERPARTY_CONFLICT_REASONS` with every new way a counterparty write can
 be blocked; `FEDERAL_TAX_CLASSIFICATIONS` is steadier. `INVOICE_SOURCES` in
 `invoice.schema.ts` and `CATALOG_ITEM_SOURCES` in `catalog-item.schema.ts`
-grow with Kick's invoicing integrations the same way. `invoice.schema.ts` also
+grow with Kick's invoicing integrations the same way, and
+`INVOICE_EMAIL_STATUSES` in `invoice-email.schema.ts` with Kick's outbound
+email checks. `invoice.schema.ts` also
 vendors derived knowledge, like `ACCOUNT_TYPE_CLASSES`:
-`INVOICE_STATUS_TRANSITIONS`, `PROVIDER_OWNED_INVOICE_SOURCES` and
-`DELETABLE_INVOICE_SOURCES` copy the rules the upstream `update` and `delete`
-descriptions state in prose, so the invoice page only offers writes Kick
-accepts. Re-read those descriptions when the invoice contract changes.
+`INVOICE_STATUS_TRANSITIONS`, `PROVIDER_OWNED_INVOICE_SOURCES`,
+`DELETABLE_INVOICE_SOURCES` and `SENDABLE_INVOICE_STATUSES` copy the rules
+the upstream `update`, `delete` and `send` descriptions state in prose, so
+the invoice page only offers writes Kick accepts. Re-read those descriptions when the invoice contract changes.
 
 ## Vendored resources and deliberate gaps
 
@@ -497,10 +502,17 @@ intentionally left out:
   UI (see Cash basis only; classes are not vendored). `get` is kept for
   parity and curl use, since the listing carries every price.
 - Invoices: the whole upstream surface (`list`, `get`, `create`, `update`,
-  `delete`). `create` bills an existing counterparty (`customerId`) and
+  `send`, `delete`). `create` bills an existing counterparty (`customerId`) and
   creates a `draft` unless `status: open` issues it and posts its journal
-  entries. Kick emails nothing and the partner owns payment, so the https
-  `customPaymentLink` is the partner's pay URL. It is optional on `create`:
+  entries. `create` emails nothing; `send` does, for `manual` invoices only
+  (`canSendInvoice`): a `draft` is issued once its first email actually goes
+  out — so a draft sent with a `pending` email still comes back a `draft` —
+  and an `open` one is sent again. Every `send` field is optional, falls back
+  to what Kick saved on the invoice, and is remembered; those saved defaults
+  are not on the wire, so the form prefills "To" from the customer's email
+  and the subject from the invoice number, and omits blank fields. Kick
+  chooses the sender. The partner owns payment,
+  so the https `customPaymentLink` is the partner's pay URL. It is optional on `create`:
   the form sends it only when it is filled in, and the invoice page's
   Details form can add it later to a `manual` invoice that isn't void. What `update` takes depends on source and status:
   provider-owned (`stripe`, `mercury`, `billcom`) invoices take `memo` only,

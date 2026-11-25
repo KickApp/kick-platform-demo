@@ -77,6 +77,10 @@ import {
     platformInvoiceUpdateBodySchema,
 } from "../schemas/invoice.schema";
 import {
+    platformInvoiceSendBodySchema,
+    platformInvoiceSendResponseSchema,
+} from "../schemas/invoice-email.schema";
+import {
     createPlatformEntityBodySchema,
     platformEntitiesListQuerySchema,
     platformEntitiesListResponseSchema,
@@ -185,7 +189,9 @@ const c = initContract();
  * writes (a `reason`) are the ones whose 409 body is richer than plain
  * `{ message }`. Preparing categorization for an entity that is not on a
  * custom chart of accounts and generating migration transaction rules for an
- * ineligible workspace are the routes that answer 422.
+ * ineligible workspace are the routes that answer 422. Sending an invoice
+ * also declares 503 (Kick couldn't run its outbound email check), on that
+ * route only.
  */
 const errorResponses = {
     400: errorMessageSchema,
@@ -1138,6 +1144,17 @@ const invoicesContract = c.router(
             responses: {
                 200: platformInvoiceResponseSchema,
                 ...errorResponses,
+            },
+        },
+        send: {
+            method: "POST",
+            path: "/:invoiceId/send",
+            pathParams: platformInvoicePathParamsSchema,
+            body: platformInvoiceSendBodySchema,
+            responses: {
+                200: platformInvoiceSendResponseSchema,
+                ...errorResponses,
+                503: errorMessageSchema,
             },
         },
         delete: {
