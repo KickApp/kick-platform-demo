@@ -57,6 +57,9 @@ export function MergeCounterpartyForm({
                 queryKey: ["transactions", workspaceId],
             });
             await queryClient.invalidateQueries({
+                queryKey: ["invoices", workspaceId],
+            });
+            await queryClient.invalidateQueries({
                 queryKey: ["counterparty", workspaceId, keep.id],
             });
             await navigate(`../${keep.id}`, { relative: "path" });

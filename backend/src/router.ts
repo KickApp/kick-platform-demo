@@ -636,4 +636,89 @@ export const platformRouter = s.router(platformContract, {
             );
         },
     },
+    catalogItems: {
+        list: async ({ params, query }) => {
+            const result = await kickClient.catalogItems.list({
+                params,
+                query,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        get: async ({ params }) => {
+            const result = await kickClient.catalogItems.get({ params });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        create: async ({ params, body }) => {
+            const result = await kickClient.catalogItems.create({
+                params,
+                body,
+            });
+            if (result.status === 201) {
+                return { status: 201, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        update: async ({ params, body }) => {
+            const result = await kickClient.catalogItems.update({
+                params,
+                body,
+            });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        // The upstream 200 carries no body, so neither does this one.
+        delete: async ({ params }) => {
+            const result = await kickClient.catalogItems.delete({ params });
+            if (result.status === 200) {
+                return { status: 200, body: undefined };
+            }
+            return forwardUpstreamError(result);
+        },
+    },
+    invoices: {
+        list: async ({ params, query }) => {
+            const result = await kickClient.invoices.list({ params, query });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        get: async ({ params }) => {
+            const result = await kickClient.invoices.get({ params });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        create: async ({ params, body }) => {
+            const result = await kickClient.invoices.create({ params, body });
+            if (result.status === 201) {
+                return { status: 201, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        update: async ({ params, body }) => {
+            const result = await kickClient.invoices.update({ params, body });
+            if (result.status === 200) {
+                return { status: 200, body: result.body };
+            }
+            return forwardUpstreamError(result);
+        },
+        // The upstream 200 carries no body, so neither does this one.
+        delete: async ({ params }) => {
+            const result = await kickClient.invoices.delete({ params });
+            if (result.status === 200) {
+                return { status: 200, body: undefined };
+            }
+            return forwardUpstreamError(result);
+        },
+    },
 });

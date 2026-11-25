@@ -67,7 +67,9 @@ flows:
   `/platform/v1/entities/:entityId/reports/*`, `/platform/v1/locks`,
   `/platform/v1/workspaces/:workspaceId/tasks`,
   `/platform/v1/workspaces/:workspaceId/task-groups`,
-  `/platform/v1/workspaces/:workspaceId/counterparties`).
+  `/platform/v1/workspaces/:workspaceId/counterparties`,
+  `/platform/v1/workspaces/:workspaceId/catalog-items`,
+  `/platform/v1/workspaces/:workspaceId/invoices`).
 - The backend consumes it twice: `initClient` against Kick
   (`backend/src/kick-client.ts`) and `initServer`/`createExpressEndpoints`
   mounted under `/api` (`backend/src/router.ts`, `backend/src/index.ts`), so
@@ -85,11 +87,14 @@ flows:
   financial-account date change blocked by reconciliations or an opening
   balance, deleting a financial account that manual journal entries post to,
   deleting an opening balance once its bank account is reconciled, two
-  concurrent opening balance writes to the same account, and a blocked
-  counterparty create, update, delete or merge answer 409 today;
+  concurrent opening balance writes to the same account, a blocked
+  counterparty create, update, delete or merge, a catalog item write with a
+  taken name or a refused price batch, deleting a catalog item used on
+  invoices, and an invoice dated in a locked period answer 409 today;
   preparing categorization and generating migration transaction rules for an
   ineligible workspace answer 422, and writes on a workspace on the
-  Read-only plan answer 403. The contract declares the same error superset
+  Read-only plan answer 403, as do catalog items and invoices on a plan
+  without invoicing. The contract declares the same error superset
   on every route.
   Two kinds of 409 body are richer than plain `{ message }`: the account
   merge's carries structured blockers, and the counterparty writes' carries a
@@ -262,14 +267,21 @@ with most new task-producing features — with `TASK_STATUSES` next to it. In
 `counterparty.schema.ts`, `COUNTERPARTY_SOURCES` grows with Kick's
 integrations like the financial account sources, and
 `COUNTERPARTY_CONFLICT_REASONS` with every new way a counterparty write can
-be blocked; `FEDERAL_TAX_CLASSIFICATIONS` is steadier.
+be blocked; `FEDERAL_TAX_CLASSIFICATIONS` is steadier. `INVOICE_SOURCES` in
+`invoice.schema.ts` and `CATALOG_ITEM_SOURCES` in `catalog-item.schema.ts`
+grow with Kick's invoicing integrations the same way. `invoice.schema.ts` also
+vendors derived knowledge, like `ACCOUNT_TYPE_CLASSES`:
+`INVOICE_STATUS_TRANSITIONS`, `PROVIDER_OWNED_INVOICE_SOURCES` and
+`DELETABLE_INVOICE_SOURCES` copy the rules the upstream `update` and `delete`
+descriptions state in prose, so the invoice page only offers writes Kick
+accepts. Re-read those descriptions when the invoice contract changes.
 
 ## Vendored resources and deliberate gaps
 
-Seventeen resources are vendored: the organization, workspaces, entities, Plaid
+Nineteen resources are vendored: the organization, workspaces, entities, Plaid
 connections, Stripe connections, financial accounts, transactions, the chart of accounts, account
-groups, opening balances, counterparties, locks, tasks, task groups,
-accounting migrations, journal entries and reports. Some upstream routes are
+groups, opening balances, counterparties, catalog items, invoices, locks,
+tasks, task groups, accounting migrations, journal entries and reports. Some upstream routes are
 intentionally left out:
 
 - Workspaces: `list`, `create`, `get` and `update`. `create` requires a `plan`
@@ -459,6 +471,48 @@ intentionally left out:
   counterparty, so every counterparty write also invalidates the transaction
   queries. There is no upstream `counterpartyIds` filter on the transaction
   listing, so the counterparty page does not list its transactions.
+- Catalog items: the whole upstream surface (`list`, `get`, `create`,
+  `update`, `delete`), workspace-scoped though each item belongs to one
+  entity. Both catalog items and invoices need a plan with invoicing (403
+  otherwise). Prices are embedded in the item and immutable: they are written
+  only through `create.prices` and `update.prices`, an ordered batch of
+  `create`/`update`/`delete` operations saved together with the item's own
+  fields or not at all, and `update` answers `createdPrices` keyed by each
+  create's `clientId`. The prices editor relies on that ordering: "add a
+  default price and archive the old default" is one batch, because the
+  create moves the default before the archive runs, and archiving the
+  current default on its own answers 409. The upstream refines (an update
+  operation sending at least one field, unique `clientId`s, "at least one
+  field" on the body) are left off like the other refines. Deleting an item
+  used on invoices answers 409, and the row then highlights Archive.
+  `receivablesAccountId` and `classIds` are vendored but never written by the
+  UI (see Cash basis only; classes are not vendored). `get` is kept for
+  parity and curl use, since the listing carries every price.
+- Invoices: the whole upstream surface (`list`, `get`, `create`, `update`,
+  `delete`). `create` bills an existing counterparty (`customerId`) and
+  creates a `draft` unless `status: open` issues it and posts its journal
+  entries. Kick emails nothing and the partner owns payment, so the https
+  `customPaymentLink` is the partner's pay URL. It is optional on `create`:
+  the form sends it only when it is filled in, and the invoice page's
+  Details form can add it later to a `manual` invoice that isn't void. What `update` takes depends on source and status:
+  provider-owned (`stripe`, `mercury`, `billcom`) invoices take `memo` only,
+  and only a `manual` draft takes every field. The invoice page reads those
+  rules from the vendored constants above rather than trying a write and
+  showing the refusal. Tax is per line only. Discount and deposit can go on
+  the lines or on the invoice but not both, and the demo offers them on the
+  invoice only, so that refine can't be broken. The draft editor sends `lines`
+  only when one was added, removed or edited, and sends kept lines with their
+  `id` and just the changed fields. Kick then keeps everything else on a kept
+  line, including its tax, and invoice-level discount and deposit survive the
+  replace. Invoices carry the customer as a uuid only, so names are resolved
+  through one cached counterparty `get` per customer (`useCustomerNames`),
+  the same cache key the counterparty page uses. A counterparty merge moves
+  invoices, so the merge form also invalidates the invoice queries, and
+  invoice writes invalidate the journal-entry and report queries. The
+  upstream top-level refines (`dueDate >= invoiceDate`, status dates only
+  with their status, unique line ids, new lines needing
+  `description`/`unitAmount`, `startDate <= endDate`) are left off and Kick's
+  400 explains them.
 - Plaid: the Platform API's `create` takes a `processor_token` and has no
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is
@@ -483,8 +537,10 @@ The demo keeps cash-basis books. `WorkspaceReportsPage` sends
 the two account fields the transactions tab reads and writes `accountId`
 only. `accrualAccountId` and the
 `accruals` ledger basis stay in `shared/` so the mirror matches upstream, but
-nothing in the UI touches them — do not add an accrual surface without deciding
-what the demo should say about two sets of books.
+nothing in the UI touches them. The same goes for `receivablesAccountId` on
+catalog items and invoice lines, which upstream ties to a plan with accrual
+accounting. Do not add an accrual surface without deciding what the demo
+should say about two sets of books.
 
 ## Adding a new resource (e.g. classes, journal entries)
 

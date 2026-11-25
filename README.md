@@ -5,12 +5,13 @@ small Express BFF backend covering the **organization**, **workspaces**,
 **entities**, **Plaid connections**, **Stripe connections**, **financial
 accounts**, **transactions**,
 the **chart of accounts**, **account groups**, **opening balances**,
-**counterparties**, entity **locks**, **tasks** and **task groups**,
+**counterparties**, **catalog items**, **invoices**, entity **locks**,
+**tasks** and **task groups**,
 **accounting migrations** (with the
 **journal entries** they migrate) and **reports** through the external Platform
 API.
 
-Opening a workspace gives thirteen tabs: manage its entities, manage an entity's
+Opening a workspace gives fifteen tabs: manage its entities, manage an entity's
 chart of accounts (create, rename, move between groups, archive, delete),
 manage the account groups arranging that chart into a hierarchy, set the
 accounts' opening balances and adjustments (see
@@ -22,7 +23,9 @@ dates, move to another entity, delete — see
 hand-entered id (see [Stripe connections](#stripe-connections)), read the workspace's transactions
 across every entity and recategorize them, manage the workspace's
 counterparties (create, edit, disable, delete, merge — see
-[Counterparties](#counterparties)), read the workspace's tasks, the
+[Counterparties](#counterparties)), manage the catalog items it sells and
+their prices (see [Catalog items](#catalog-items)), create, edit, issue and
+settle invoices (see [Invoices](#invoices)), read the workspace's tasks, the
 transactions they cover and their message threads, post to those threads, and
 read the task groups (see [Tasks](#tasks)), lock or unlock each entity's books
 through a date (see [Locks](#locks)), migrate an entity's historical books and
@@ -234,6 +237,55 @@ curl -s -X DELETE "http://localhost:4001/api/platform/v1/workspaces/<uuid>/count
 curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces/<uuid>/counterparties/merge" \
   -H "Content-Type: application/json" \
   -d '{"counterpartyToMergeId": "<uuid>", "counterpartyToKeepId": "<uuid>"}'
+
+# List an entity's active catalog items matching a name or SKU (status is
+# active by default; archived or all widen it). Needs a plan with invoicing.
+curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/catalog-items?entityIds=<uuid>&search=bookkeeping&status=all"
+
+# Create a catalog item with a default price (409 when an active item of the
+# entity already has the name)
+curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces/<uuid>/catalog-items" \
+  -H "Content-Type: application/json" \
+  -d '{"entityId": "<uuid>", "name": "Monthly bookkeeping", "type": "service", "currency": "usd", "revenueAccountId": "<uuid>", "prices": [{"op": "create", "clientId": "p1", "unitAmount": 500, "currency": "usd", "isDefault": true}]}'
+
+# Change a price: create the new default and archive the old one in one
+# ordered batch (409 when a batch would leave the default archived)
+curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/catalog-items/<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"prices": [{"op": "create", "clientId": "p2", "unitAmount": 650, "currency": "usd", "isDefault": true}, {"op": "update", "priceId": "<uuid>", "active": false}]}'
+
+# Archive a catalog item (deleting one used on invoices answers 409)
+curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/catalog-items/<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"active": false}'
+
+# List a workspace's open invoices billed to a customer in a date range
+curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoices?status=open&customerIds=<uuid>&startDate=2026-01-01&endDate=2026-12-31"
+
+# Create a draft invoice from a catalog item (status "open" issues it and
+# posts its journal entries; no email is sent either way). customPaymentLink
+# is optional and can be added later with an update
+curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoices" \
+  -H "Content-Type: application/json" \
+  -d '{"entityId": "<uuid>", "customerId": "<uuid>", "customPaymentLink": "https://pay.example.com/inv_1", "invoiceDate": "2026-11-20", "dueDate": "2026-12-20", "currency": "usd", "lines": [{"description": "Bookkeeping, November", "quantity": 1, "unitAmount": 650, "catalogItemId": "<uuid>", "tax": 10}]}'
+
+# Edit a draft's lines: a line with its id is kept (only the fields sent
+# change), a line without one is added, and a line left out is removed
+curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoices/<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"lines": [{"id": "<uuid>", "quantity": 2}, {"description": "Catch-up hours", "unitAmount": 120}]}'
+
+# Issue it, then mark it paid on a given day (the day defaults to today in
+# the workspace's timezone)
+curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoices/<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "open"}'
+curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoices/<uuid>" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "paid", "paidDate": "2026-11-24"}'
+
+# Delete a draft (any other invoice answers 400; void it instead)
+curl -s -X DELETE "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoices/<uuid>"
 
 # List a workspace's open tasks, newest first, with the assignee expanded
 # (multi-choice filters take repeated params)
@@ -800,6 +852,63 @@ Clicking a counterparty opens its page, read with
 Global counterparties are shared across Kick, so the Platform API refuses to
 update them and the page shows them read-only.
 
+## Catalog items
+
+The Catalog items tab lists the products and services the workspace sells on
+invoices, across its entities, filtered by entity, name or SKU, and status
+(active, archived or all). Catalog items and invoices both need a workspace
+plan with invoicing; on any other plan Kick answers 403 and the tab shows its
+message.
+
+"Create catalog item" takes the entity, name, type, SKU, description, a
+revenue account copied onto invoice lines made from the item, and an optional
+starting price that becomes the default. On a row you can rename the item,
+archive or enable it, and delete it. An item used on invoices can't be
+deleted (409), so archive it instead: it stays on existing invoices but can't
+be added to new ones.
+
+Prices are immutable, so changing one means adding a new price and archiving
+the old one. "Prices" opens the item's prices. Adding a default price can
+archive the current default in the same request: both changes go in one
+ordered `prices` batch, and Kick saves all of it or none. Each price can also
+be made the default, archived, enabled or deleted on its own. Kick refuses
+(409) a batch that leaves the item without an active price, archives or
+deletes the default, or deletes a price used on invoices.
+
+## Invoices
+
+The Invoices tab lists the workspace's invoices from every source (created in
+Kick, imported, synced from Stripe, Mercury, Bill.com or QuickBooks), newest
+first, filtered by entity, status, source and invoice date range.
+
+"Create invoice" bills an existing counterparty. It takes the entity, an
+optional https payment link (Kick sends no email, so the partner owns delivery
+and payment; the link can be added later from the invoice page), the invoice
+and due dates, an optional number (Kick assigns the
+entity's next one otherwise), a memo, the lines, and an invoice-level discount
+and deposit. A line can start from one of the entity's catalog items, which
+fills in its description and default price. A line takes its revenue account
+from the line itself, then from the catalog item, then from the entity
+default. Tax is set per line. "Save draft" keeps the invoice off the books;
+"Create & issue" sends `status: open`, which posts its journal entries.
+
+Clicking an invoice opens its page with the lines and totals. What you can do
+there depends on where the invoice comes from and its status:
+
+- A draft created in Kick can be edited in full: customer, number, date,
+  lines, discount and deposit. Kept lines are sent with their `id` and only
+  the fields that changed.
+- Its status moves only the ways Kick allows: draft to open; open to paid,
+  void or uncollectable; paid back to open; uncollectable to paid or void.
+  Paying, voiding and writing off take an optional day.
+- Memo, due date and payment link stay editable after the invoice is issued.
+  The payment link is only editable on invoices created in Kick. It can also
+  be added to one created without a link. A void invoice keeps only its memo
+  editable.
+- Stripe, Mercury and Bill.com invoices belong to the provider, so the page
+  only edits their memo.
+- A draft created in Kick, imported, or created over MCP can be deleted.
+
 ## Reports
 
 The Reports tab covers all five Platform API reports — profit and loss, balance
@@ -818,8 +927,8 @@ backend/   Express BFF: authenticates to Kick, passes requests/errors through,
            logs incoming webhooks
 frontend/  React app: workspaces list/create/change-plan, then per-workspace entities,
            chart of accounts, account groups, opening balances, Plaid connections,
-           financial accounts, transactions, counterparties, tasks, task groups, locks,
-           accounting migration and reports tabs
+           financial accounts, transactions, counterparties, catalog items, invoices,
+           tasks, task groups, locks, accounting migration and reports tabs
 ```
 
 See [AGENTS.md](AGENTS.md) for a guide aimed at coding agents extending this

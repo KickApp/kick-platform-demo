@@ -67,6 +67,11 @@ export function CounterpartyPicker({
                     )
                 }
             >
+                {selected === null && options.length > 0 && (
+                    <option value="" disabled>
+                        Pick a counterparty…
+                    </option>
+                )}
                 {options.map((counterparty) => (
                     <option key={counterparty.id} value={counterparty.id}>
                         {counterparty.name}

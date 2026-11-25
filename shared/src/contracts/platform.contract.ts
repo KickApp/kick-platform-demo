@@ -58,6 +58,25 @@ import {
     platformCounterpartyUpdateBodySchema,
 } from "../schemas/counterparty.schema";
 import {
+    platformCatalogItemCreateBodySchema,
+    platformCatalogItemPathParamsSchema,
+    platformCatalogItemResponseSchema,
+    platformCatalogItemsListQuerySchema,
+    platformCatalogItemsListResponseSchema,
+    platformCatalogItemsPathParamsSchema,
+    platformCatalogItemUpdateBodySchema,
+    platformCatalogItemUpdateResponseSchema,
+} from "../schemas/catalog-item.schema";
+import {
+    platformInvoiceCreateBodySchema,
+    platformInvoicePathParamsSchema,
+    platformInvoiceResponseSchema,
+    platformInvoicesListQuerySchema,
+    platformInvoicesListResponseSchema,
+    platformInvoicesPathParamsSchema,
+    platformInvoiceUpdateBodySchema,
+} from "../schemas/invoice.schema";
+import {
     createPlatformEntityBodySchema,
     platformEntitiesListQuerySchema,
     platformEntitiesListResponseSchema,
@@ -159,8 +178,10 @@ const c = initContract();
  * or an opening balance, deleting a financial account that manual journal
  * entries post to, deleting an opening balance of a reconciled bank account
  * and two concurrent opening balance writes to the same account, and blocked
- * counterparty creates, updates, deletes and merges are the routes that actually answer
- * 409 today; the account merge (structured blockers) and the counterparty
+ * counterparty creates, updates, deletes and merges, catalog item writes (a
+ * duplicate name, a refused price batch, deleting an item used on invoices)
+ * and invoice writes dated in a locked period are the routes that actually
+ * answer 409 today; the account merge (structured blockers) and the counterparty
  * writes (a `reason`) are the ones whose 409 body is richer than plain
  * `{ message }`. Preparing categorization for an entity that is not on a
  * custom chart of accounts and generating migration transaction rules for an
@@ -1012,6 +1033,127 @@ const counterpartiesContract = c.router(
     { pathPrefix: "/platform/v1/workspaces/:workspaceId/counterparties" },
 );
 
+/**
+ * Products and services an entity sells on invoices, listed across the
+ * workspace. Prices live on the item and change only through `create` and
+ * `update`. A duplicate active name, a refused price batch, and deleting an
+ * item used on invoices answer 409.
+ */
+const catalogItemsContract = c.router(
+    {
+        list: {
+            method: "GET",
+            path: "",
+            pathParams: platformCatalogItemsPathParamsSchema,
+            query: platformCatalogItemsListQuerySchema,
+            responses: {
+                200: platformCatalogItemsListResponseSchema,
+                ...errorResponses,
+            },
+        },
+        get: {
+            method: "GET",
+            path: "/:catalogItemId",
+            pathParams: platformCatalogItemPathParamsSchema,
+            responses: {
+                200: platformCatalogItemResponseSchema,
+                ...errorResponses,
+            },
+        },
+        create: {
+            method: "POST",
+            path: "",
+            pathParams: platformCatalogItemsPathParamsSchema,
+            body: platformCatalogItemCreateBodySchema,
+            responses: {
+                201: platformCatalogItemResponseSchema,
+                ...errorResponses,
+            },
+        },
+        update: {
+            method: "PATCH",
+            path: "/:catalogItemId",
+            pathParams: platformCatalogItemPathParamsSchema,
+            body: platformCatalogItemUpdateBodySchema,
+            responses: {
+                200: platformCatalogItemUpdateResponseSchema,
+                ...errorResponses,
+            },
+        },
+        delete: {
+            method: "DELETE",
+            path: "/:catalogItemId",
+            pathParams: platformCatalogItemPathParamsSchema,
+            body: c.noBody(),
+            responses: {
+                200: c.noBody(),
+                ...errorResponses,
+            },
+        },
+    },
+    { pathPrefix: "/platform/v1/workspaces/:workspaceId/catalog-items" },
+);
+
+/**
+ * Invoices from every source: created in Kick, imported, and synced from
+ * providers. A date in a locked period answers 409; `delete` only works on a
+ * draft of a deletable source and answers 400 otherwise.
+ */
+const invoicesContract = c.router(
+    {
+        list: {
+            method: "GET",
+            path: "",
+            pathParams: platformInvoicesPathParamsSchema,
+            query: platformInvoicesListQuerySchema,
+            responses: {
+                200: platformInvoicesListResponseSchema,
+                ...errorResponses,
+            },
+        },
+        get: {
+            method: "GET",
+            path: "/:invoiceId",
+            pathParams: platformInvoicePathParamsSchema,
+            responses: {
+                200: platformInvoiceResponseSchema,
+                ...errorResponses,
+            },
+        },
+        create: {
+            method: "POST",
+            path: "",
+            pathParams: platformInvoicesPathParamsSchema,
+            body: platformInvoiceCreateBodySchema,
+            responses: {
+                201: platformInvoiceResponseSchema,
+                ...errorResponses,
+            },
+        },
+        update: {
+            method: "PATCH",
+            path: "/:invoiceId",
+            pathParams: platformInvoicePathParamsSchema,
+            body: platformInvoiceUpdateBodySchema,
+            responses: {
+                200: platformInvoiceResponseSchema,
+                ...errorResponses,
+            },
+        },
+        delete: {
+            method: "DELETE",
+            path: "/:invoiceId",
+            pathParams: platformInvoicePathParamsSchema,
+            body: c.noBody(),
+            responses: {
+                200: c.noBody(),
+                ...errorResponses,
+            },
+        },
+    },
+    { pathPrefix: "/platform/v1/workspaces/:workspaceId/invoices" },
+);
+
 export const platformContract = c.router({
     organization: organizationContract,
     workspaces: workspacesContract,
@@ -1030,4 +1172,6 @@ export const platformContract = c.router({
     tasks: tasksContract,
     taskGroups: taskGroupsContract,
     counterparties: counterpartiesContract,
+    catalogItems: catalogItemsContract,
+    invoices: invoicesContract,
 });

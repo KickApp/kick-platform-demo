@@ -2,11 +2,14 @@ import { Link, Navigate, Route, Routes } from "react-router";
 import { WorkspacesPage } from "./pages/WorkspacesPage";
 import { WorkspaceAccountGroupsPage } from "./pages/WorkspaceAccountGroupsPage";
 import { WorkspaceAccountingMigrationPage } from "./pages/WorkspaceAccountingMigrationPage";
+import { WorkspaceCatalogItemsPage } from "./pages/WorkspaceCatalogItemsPage";
 import { WorkspaceChartOfAccountsPage } from "./pages/WorkspaceChartOfAccountsPage";
 import { WorkspaceCounterpartiesPage } from "./pages/WorkspaceCounterpartiesPage";
 import { WorkspaceCounterpartyPage } from "./pages/WorkspaceCounterpartyPage";
 import { WorkspaceEntitiesPage } from "./pages/WorkspaceEntitiesPage";
 import { WorkspaceFinancialAccountsPage } from "./pages/WorkspaceFinancialAccountsPage";
+import { WorkspaceInvoicePage } from "./pages/WorkspaceInvoicePage";
+import { WorkspaceInvoicesPage } from "./pages/WorkspaceInvoicesPage";
 import { WorkspaceLayout } from "./pages/WorkspaceLayout";
 import { WorkspaceLocksPage } from "./pages/WorkspaceLocksPage";
 import { WorkspaceOpeningBalancesPage } from "./pages/WorkspaceOpeningBalancesPage";
@@ -28,8 +31,9 @@ export function App() {
                 <span className="app-subtitle">
                     Workspaces, entities, the chart of accounts, account groups,
                     opening balances, Plaid connections, financial accounts,
-                    transactions, counterparties, tasks, locks, accounting
-                    migrations &amp; reports via the Platform API
+                    transactions, counterparties, catalog items, invoices,
+                    tasks, locks, accounting migrations &amp; reports via the
+                    Platform API
                 </span>
             </header>
             <main className="app-main">
@@ -82,6 +86,18 @@ export function App() {
                         <Route
                             path="counterparties/:counterpartyId"
                             element={<WorkspaceCounterpartyPage />}
+                        />
+                        <Route
+                            path="catalog-items"
+                            element={<WorkspaceCatalogItemsPage />}
+                        />
+                        <Route
+                            path="invoices"
+                            element={<WorkspaceInvoicesPage />}
+                        />
+                        <Route
+                            path="invoices/:invoiceId"
+                            element={<WorkspaceInvoicePage />}
                         />
                         <Route path="tasks" element={<WorkspaceTasksPage />} />
                         <Route
