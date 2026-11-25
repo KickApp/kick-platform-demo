@@ -121,9 +121,17 @@ flows:
   [The accounting migration flow](#the-accounting-migration-flow)). Keep
   demo-only routes under `/demo/` and out of `platform.contract.ts` so the
   mirror stays a mirror.
-- The webhook receiver (`backend/src/webhook-router.ts`, mounted at
-  `/api/demo/v1/webhooks`) is the one route with no contract at all — see
-  [Receiving webhooks](#receiving-webhooks).
+- Two routes have no contract at all. The webhook receiver
+  (`backend/src/webhook-router.ts`, mounted at `/api/demo/v1/webhooks`) is
+  one — see [Receiving webhooks](#receiving-webhooks). The invoice PDF relay
+  (`backend/src/invoice-pdf-router.ts`) is the other: it serves upstream's
+  `downloadPdf` at the mirrored
+  `/api/platform/v1/workspaces/:workspaceId/invoices/:invoiceId/pdf`, but
+  outside `platform.contract.ts`, because the ts-rest fetch client decodes
+  any non-JSON body as text and would corrupt the PDF bytes. It relays
+  `Content-Type` and `Content-Disposition` on a PDF and sends any other
+  answer through `forwardUpstreamError`. The frontend
+  (`downloadInvoicePdf`) calls it with plain `fetch` for the same reason.
 
 ## The Plaid Link flow
 
@@ -512,7 +520,10 @@ intentionally left out:
   upstream top-level refines (`dueDate >= invoiceDate`, status dates only
   with their status, unique line ids, new lines needing
   `description`/`unitAmount`, `startDate <= endDate`) are left off and Kick's
-  400 explains them.
+  400 explains them. `downloadPdf` is covered too, by the contract-less relay
+  described under Architecture. Only `manual` invoices have a PDF, drafts
+  included, and any other source answers 400. The invoice page shows its
+  Download PDF button only for `manual` invoices (`hasInvoicePdf`).
 - Plaid: the Platform API's `create` takes a `processor_token` and has no
   link/public token exchange. The UI goes through the demo's own Plaid Link
   routes instead; the mirrored `POST /platform/v1/plaid-connections` handler is

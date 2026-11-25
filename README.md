@@ -287,6 +287,10 @@ curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoic
 # Delete a draft (any other invoice answers 400; void it instead)
 curl -s -X DELETE "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoices/<uuid>"
 
+# Download an invoice's PDF (only invoices created in Kick, source "manual",
+# have one; any other source answers 400)
+curl -s -o invoice.pdf "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoices/<uuid>/pdf"
+
 # List a workspace's open tasks, newest first, with the assignee expanded
 # (multi-choice filters take repeated params)
 curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/tasks?statuses=todo&statuses=in_progress&relations=assignee"

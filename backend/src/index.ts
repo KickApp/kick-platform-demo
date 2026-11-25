@@ -9,6 +9,7 @@ import {
 } from "@kick-demo/shared";
 import { accountingMigrationRunRouter } from "./accounting-migration-router";
 import { config } from "./config";
+import { invoicePdfRouter } from "./invoice-pdf-router";
 import { UpstreamError } from "./kick-client";
 import { plaidLinkRouter } from "./plaid-link-router";
 import { platformRouter } from "./router";
@@ -75,6 +76,9 @@ createExpressEndpoints(
         responseValidation: true,
     },
 );
+// Binary bodies can't go through the ts-rest client, so the invoice PDF has its
+// own contract-less relay at the mirrored path.
+app.use("/api", invoicePdfRouter);
 app.use("/api", apiRouter);
 
 app.use(
