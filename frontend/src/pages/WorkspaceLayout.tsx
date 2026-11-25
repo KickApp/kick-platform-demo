@@ -71,21 +71,27 @@ export function WorkspaceLayout() {
                 </div>
             )}
 
-            <nav className="tabs">
-                {TABS.map((tab) => (
-                    <NavLink
-                        key={tab.path}
-                        to={tab.path}
-                        className={({ isActive }) =>
-                            isActive ? "tab tab-active" : "tab"
-                        }
-                    >
-                        {tab.label}
-                    </NavLink>
-                ))}
-            </nav>
+            <div className="workspace-body">
+                <nav className="side-nav" aria-label="Workspace sections">
+                    {TABS.map((tab) => (
+                        <NavLink
+                            key={tab.path}
+                            to={tab.path}
+                            className={({ isActive }) =>
+                                isActive
+                                    ? "side-nav-item side-nav-item-active"
+                                    : "side-nav-item"
+                            }
+                        >
+                            {tab.label}
+                        </NavLink>
+                    ))}
+                </nav>
 
-            <Outlet context={outletContext} />
+                <div className="workspace-content">
+                    <Outlet context={outletContext} />
+                </div>
+            </div>
         </section>
     );
 }
