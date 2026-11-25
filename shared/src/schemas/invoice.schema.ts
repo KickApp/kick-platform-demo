@@ -86,6 +86,15 @@ export const DELETABLE_INVOICE_SOURCES: readonly InvoiceSource[] = [
     "mcp",
 ];
 
+/**
+ * From the upstream `send` description: only `manual` invoices are emailed,
+ * a draft is issued by its first email and an open one is sent again.
+ */
+export const SENDABLE_INVOICE_STATUSES: readonly InvoiceStatus[] = [
+    "draft",
+    "open",
+];
+
 export const INVOICE_CURRENCIES = ["usd"] as const;
 
 export const INVOICE_MAX_LINES = 100;
