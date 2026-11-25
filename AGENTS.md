@@ -335,7 +335,14 @@ intentionally left out:
   picker searches the counterparty listing, which leaves disabled rows out,
   because Kick refuses to assign those (400). A transaction matched to a bill
   or invoice answers 400 too, and a locked one 409; the cell shows Kick's
-  message.
+  message. Descriptions come in three fields: `bankDescription` from the
+  provider, an optional `overrideDescription`, and `description` (the
+  override when set, otherwise the bank one), which is what the UI shows.
+  The Description cell edits the override inline, and `null` (or an empty
+  string, which Kick trims to nothing) clears it. On a line of a split
+  transaction `overrideDescription` is the line's label, edited only in
+  Kick, and writing it answers 400; the wire shape has no split flag, so the
+  edit is offered on every row and Kick's message explains a refusal.
 - Chart of accounts: everything except `get`, for the same reason as
   transactions — the listing already carries the whole row. Note the asymmetry
   in the write surface: `update` renames and/or moves the account into an

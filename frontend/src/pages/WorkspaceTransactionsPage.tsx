@@ -13,6 +13,7 @@ import {
 } from "../components/StatusMessage";
 import { TransactionAccountCell } from "../components/TransactionAccountCell";
 import { TransactionCounterpartyCell } from "../components/TransactionCounterpartyCell";
+import { TransactionDescriptionCell } from "../components/TransactionDescriptionCell";
 import { formatAmount } from "../lib/format";
 import { useEntityAccounts } from "../lib/use-entity-accounts";
 import { useWorkspaceEntities } from "../lib/use-workspace-entities";
@@ -142,7 +143,10 @@ export function WorkspaceTransactionsPage() {
                                         <tr key={transaction.id}>
                                             <td>{transaction.date}</td>
                                             <td>
-                                                {transaction.bankDescription}
+                                                <TransactionDescriptionCell
+                                                    transaction={transaction}
+                                                    workspaceId={workspaceId}
+                                                />
                                             </td>
                                             <td>
                                                 {entityName(
