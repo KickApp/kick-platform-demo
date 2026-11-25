@@ -511,8 +511,7 @@ intentionally left out:
   to what Kick saved on the invoice, and is remembered; those saved defaults
   are not on the wire, so the form prefills "To" from the customer's email
   and the subject from the invoice number, and omits blank fields. Kick
-  chooses the sender. `send` was added upstream (kickapp/kick#19099) after
-  the rest; until that is deployed it answers 404. The partner owns payment,
+  chooses the sender. The partner owns payment,
   so the https `customPaymentLink` is the partner's pay URL. It is optional on `create`:
   the form sends it only when it is filled in, and the invoice page's
   Details form can add it later to a `manual` invoice that isn't void. What `update` takes depends on source and status:

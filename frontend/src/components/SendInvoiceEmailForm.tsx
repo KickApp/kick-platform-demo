@@ -7,9 +7,9 @@ import {
     INVOICE_EMAIL_SUBJECT_MAX_LENGTH,
     type PlatformInvoice,
     type PlatformInvoiceSendBody,
-    type PlatformInvoiceSendResponse,
+    type PlatformInvoiceEmail,
 } from "@kick-demo/shared";
-import { sendInvoice } from "../api/invoices";
+import { fetchInvoice, sendInvoice } from "../api/invoices";
 import { fetchCounterparty } from "../api/platform";
 import { invalidateInvoiceQueries } from "../lib/invoices";
 import { ErrorMessageBox } from "./StatusMessage";
@@ -21,12 +21,19 @@ function parseRecipients(value: string): string[] {
         .filter((recipient) => recipient !== "");
 }
 
-function sentNotice({ invoice, email }: PlatformInvoiceSendResponse): string {
+const ISSUE_POLL_INTERVAL_MS = 2000;
+
+function sentNotice({
+    email,
+    isAwaitingIssue,
+}: {
+    email: PlatformInvoiceEmail;
+    isAwaitingIssue: boolean;
+}): string {
     const status = INVOICE_EMAIL_STATUS_LABELS[email.status];
-    if (invoice.status === "draft" && email.status === "pending") {
-        return `Email ${status}. The invoice is issued once it goes out.`;
-    }
-    return `Email ${status}.`;
+    return isAwaitingIssue
+        ? `Email ${status}. The invoice is issued once it goes out.`
+        : `Email ${status}.`;
 }
 
 /**
@@ -96,6 +103,36 @@ export function SendInvoiceEmailForm({
                 invoice: response.invoice,
             });
         },
+    });
+
+    // Kick issues a sent draft only once its queued email goes out, so the
+    // page's invoice query is polled until the draft turns open.
+    const isAwaitingIssue =
+        isDraft &&
+        mutation.data?.invoice.status === "draft" &&
+        mutation.data.email.status === "pending";
+    useQuery({
+        queryKey: ["invoice", workspaceId, invoice.id],
+        queryFn: async () => {
+            const latest = await fetchInvoice({
+                workspaceId,
+                invoiceId: invoice.id,
+            });
+            if (latest.status !== "draft") {
+                await Promise.all([
+                    queryClient.invalidateQueries({
+                        queryKey: ["invoices", workspaceId],
+                    }),
+                    queryClient.invalidateQueries({
+                        queryKey: ["journal-entries", latest.entityId],
+                    }),
+                    queryClient.invalidateQueries({ queryKey: ["report"] }),
+                ]);
+            }
+            return latest;
+        },
+        enabled: isAwaitingIssue,
+        refetchInterval: ISSUE_POLL_INTERVAL_MS,
     });
 
     const recipientHint = `Comma-separated, at most ${INVOICE_EMAIL_MAX_RECIPIENTS}.`;
@@ -187,7 +224,10 @@ export function SendInvoiceEmailForm({
             )}
             {mutation.data !== undefined && (
                 <div className="status status-info">
-                    {sentNotice(mutation.data)}
+                    {sentNotice({
+                        email: mutation.data.email,
+                        isAwaitingIssue,
+                    })}
                 </div>
             )}
             <div className="form-actions">
