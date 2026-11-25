@@ -263,7 +263,7 @@ curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/catalo
 curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoices?status=open&customerIds=<uuid>&startDate=2026-01-01&endDate=2026-12-31"
 
 # Create a draft invoice from a catalog item (status "open" issues it and
-# posts its journal entries; no email is sent either way). customPaymentLink
+# posts its journal entries; no email is sent either way, see send below). customPaymentLink
 # is optional and can be added later with an update
 curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoices" \
   -H "Content-Type: application/json" \
@@ -283,6 +283,14 @@ curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoic
 curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoices/<uuid>" \
   -H "Content-Type: application/json" \
   -d '{"status": "paid", "paidDate": "2026-11-24"}'
+
+# Email an invoice created in Kick (draft or open; a draft is issued once the
+# email goes out). Every field is optional and falls back to what Kick saved;
+# the fields sent are remembered. 503 means Kick couldn't check the email,
+# so retry later
+curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoices/<uuid>/send" \
+  -H "Content-Type: application/json" \
+  -d '{"to": ["billing@example.com"], "subject": "Invoice INV-0042", "message": "Thanks for your business.", "attachPdf": true}'
 
 # Delete a draft (any other invoice answers 400; void it instead)
 curl -s -X DELETE "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoices/<uuid>"
@@ -886,8 +894,8 @@ Kick, imported, synced from Stripe, Mercury, Bill.com or QuickBooks), newest
 first, filtered by entity, status, source and invoice date range.
 
 "Create invoice" bills an existing counterparty. It takes the entity, an
-optional https payment link (Kick sends no email, so the partner owns delivery
-and payment; the link can be added later from the invoice page), the invoice
+optional https payment link (the partner owns payment; the link can be added
+later from the invoice page), the invoice
 and due dates, an optional number (Kick assigns the
 entity's next one otherwise), a memo, the lines, and an invoice-level discount
 and deposit. A line can start from one of the entity's catalog items, which
@@ -895,6 +903,7 @@ fills in its description and default price. A line takes its revenue account
 from the line itself, then from the catalog item, then from the entity
 default. Tax is set per line. "Save draft" keeps the invoice off the books;
 "Create & issue" sends `status: open`, which posts its journal entries.
+Creating an invoice never emails it; that is done from the invoice page.
 
 Clicking an invoice opens its page with the lines and totals. What you can do
 there depends on where the invoice comes from and its status:
@@ -909,6 +918,13 @@ there depends on where the invoice comes from and its status:
   The payment link is only editable on invoices created in Kick. It can also
   be added to one created without a link. A void invoice keeps only its memo
   editable.
+- A draft or open invoice created in Kick can be sent by email. "To" starts
+  from the customer's email and the subject from the invoice number; cc, bcc,
+  reply-to, a message and the PDF attachment are optional. Blank fields fall
+  back to what Kick saved on the invoice, and Kick remembers the fields sent.
+  Sending a draft issues it once the email goes out, so it asks first. Kick
+  picks the sender, and the page shows the email's status when the request
+  returned.
 - Stripe, Mercury and Bill.com invoices belong to the provider, so the page
   only edits their memo.
 - A draft created in Kick, imported, or created over MCP can be deleted.
