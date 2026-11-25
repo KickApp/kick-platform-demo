@@ -61,6 +61,11 @@ export function isEditableDraft(invoice: PlatformInvoice): boolean {
     return invoice.source === "manual" && invoice.status === "draft";
 }
 
+/** Kick only renders a PDF for invoices created in Kick, drafts included. */
+export function hasInvoicePdf(invoice: PlatformInvoice): boolean {
+    return invoice.source === "manual";
+}
+
 /** Due date and status dates: everything but provider-owned and void. */
 export function canEditDueDate(invoice: PlatformInvoice): boolean {
     return !isProviderOwned(invoice) && invoice.status !== "void";

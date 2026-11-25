@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router";
 import { INVOICE_SOURCE_LABELS, type PlatformInvoice } from "@kick-demo/shared";
 import { deleteInvoice, fetchInvoice } from "../api/invoices";
+import { DownloadInvoicePdfButton } from "../components/DownloadInvoicePdfButton";
 import { InvoiceDetailsForm } from "../components/InvoiceDetailsForm";
 import { InvoiceDraftEditor } from "../components/InvoiceDraftEditor";
 import { InvoiceLinesTable } from "../components/InvoiceLinesTable";
@@ -15,6 +16,7 @@ import {
 import { formatDateTime } from "../lib/format";
 import {
     formatIsoDay,
+    hasInvoicePdf,
     invalidateInvoiceQueries,
     isEditableDraft,
     isInvoiceDeletable,
@@ -139,12 +141,21 @@ export function WorkspaceInvoicePage() {
                             </h3>
                             <p className="page-meta mono">{invoice.id}</p>
                         </div>
-                        {isInvoiceDeletable(invoice) && (
+                        {(hasInvoicePdf(invoice) ||
+                            isInvoiceDeletable(invoice)) && (
                             <div className="row-actions">
-                                <DeleteInvoiceButton
-                                    workspaceId={workspaceId}
-                                    invoice={invoice}
-                                />
+                                {hasInvoicePdf(invoice) && (
+                                    <DownloadInvoicePdfButton
+                                        workspaceId={workspaceId}
+                                        invoice={invoice}
+                                    />
+                                )}
+                                {isInvoiceDeletable(invoice) && (
+                                    <DeleteInvoiceButton
+                                        workspaceId={workspaceId}
+                                        invoice={invoice}
+                                    />
+                                )}
                             </div>
                         )}
                     </div>

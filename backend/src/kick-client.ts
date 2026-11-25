@@ -4,15 +4,17 @@ import { errorMessageSchema, platformContract } from "@kick-demo/shared";
 import type { ErrorMessage } from "@kick-demo/shared";
 import { config } from "./config";
 
+export const kickAuthorizationHeaders = {
+    authorization: `Bearer ${config.kickPlatformApiToken}`,
+};
+
 /**
  * Typed client for the upstream Kick Platform API. The organization access
  * token stays server-side; the frontend only ever talks to this BFF.
  */
 export const kickClient = initClient(platformContract, {
     baseUrl: config.kickApiBaseUrl,
-    baseHeaders: {
-        authorization: `Bearer ${config.kickPlatformApiToken}`,
-    },
+    baseHeaders: kickAuthorizationHeaders,
 });
 
 export class UpstreamError extends Error {
