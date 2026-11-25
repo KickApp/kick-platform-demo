@@ -3,6 +3,7 @@ import {
     DELETABLE_INVOICE_SOURCES,
     INVOICE_STATUS_TRANSITIONS,
     PROVIDER_OWNED_INVOICE_SOURCES,
+    SENDABLE_INVOICE_STATUSES,
     type InvoiceStatus,
     type PlatformInvoice,
 } from "@kick-demo/shared";
@@ -64,6 +65,14 @@ export function isEditableDraft(invoice: PlatformInvoice): boolean {
 /** Kick only renders a PDF for invoices created in Kick, drafts included. */
 export function hasInvoicePdf(invoice: PlatformInvoice): boolean {
     return invoice.source === "manual";
+}
+
+export function canSendInvoice(invoice: PlatformInvoice): boolean {
+    return (
+        invoice.source === "manual" &&
+        invoice.status !== null &&
+        SENDABLE_INVOICE_STATUSES.includes(invoice.status)
+    );
 }
 
 /** Due date and status dates: everything but provider-owned and void. */

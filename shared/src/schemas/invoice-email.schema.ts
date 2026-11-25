@@ -21,14 +21,13 @@ export const invoiceEmailStatusSchema = z.enum(INVOICE_EMAIL_STATUSES);
 
 export type InvoiceEmailStatus = z.infer<typeof invoiceEmailStatusSchema>;
 
-export const INVOICE_EMAIL_STATUS_LABELS: Record<InvoiceEmailStatus, string> =
-    {
-        pending: "queued",
-        sent: "sent",
-        blocked: "blocked",
-        rate_limited: "rate limited",
-        failed: "failed",
-    };
+export const INVOICE_EMAIL_STATUS_LABELS: Record<InvoiceEmailStatus, string> = {
+    pending: "queued",
+    sent: "sent",
+    blocked: "blocked",
+    rate_limited: "rate limited",
+    failed: "failed",
+};
 
 const recipientsSchema = z
     .array(z.string().trim().email())
