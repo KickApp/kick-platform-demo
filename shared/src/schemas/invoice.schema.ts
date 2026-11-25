@@ -124,8 +124,8 @@ export type PlatformInvoiceLine = z.infer<typeof platformInvoiceLineSchema>;
 /**
  * Wire shape of an invoice. `status` is null for a provider-synced invoice
  * until the provider reports one. `customerId` is the counterparty billed;
- * `customPaymentLink` is only set on invoices created through the Platform
- * API. Dates are calendar days (`YYYY-MM-DD`), `invoiceDate` being the day
+ * `customPaymentLink` is only ever set on invoices created through the
+ * Platform API, and is null on those created without one. Dates are calendar days (`YYYY-MM-DD`), `invoiceDate` being the day
  * it posts to the books. `memo` is internal, never shown to the customer.
  */
 export const platformInvoiceSchema = z.object({
@@ -254,7 +254,9 @@ export type PlatformInvoiceCreateLine = z.infer<
 
 /**
  * Created as a `draft` unless `status` is `open`, which issues it and posts
- * its journal entries; nothing is emailed either way. Tax goes on lines only;
+ * its journal entries; nothing is emailed either way. `customPaymentLink` is
+ * optional and can be added later with an update while the invoice isn't
+ * void. Tax goes on lines only;
  * discount and deposit go on lines or on the invoice, not both. An invoice
  * date in a locked period answers 409. The upstream `dueDate >= invoiceDate`
  * and "discount/deposit on one level" refines are left off like the other
@@ -264,7 +266,7 @@ export const platformInvoiceCreateBodySchema = z
     .object({
         entityId: z.string().uuid(),
         customerId: z.string().uuid(),
-        customPaymentLink: customPaymentLinkSchema,
+        customPaymentLink: customPaymentLinkSchema.optional(),
         status: z.enum(["draft", "open"]).optional(),
         invoiceNumber: invoiceNumberSchema.optional(),
         invoiceDate: z.string().date(),

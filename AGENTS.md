@@ -489,10 +489,12 @@ intentionally left out:
   UI (see Cash basis only; classes are not vendored). `get` is kept for
   parity and curl use, since the listing carries every price.
 - Invoices: the whole upstream surface (`list`, `get`, `create`, `update`,
-  `delete`). `create` bills an existing counterparty (`customerId`), needs an
-  https `customPaymentLink` because Kick emails nothing and the partner owns
-  payment, and creates a `draft` unless `status: open` issues it and posts
-  its journal entries. What `update` takes depends on source and status:
+  `delete`). `create` bills an existing counterparty (`customerId`) and
+  creates a `draft` unless `status: open` issues it and posts its journal
+  entries. Kick emails nothing and the partner owns payment, so the https
+  `customPaymentLink` is the partner's pay URL. It is optional on `create`:
+  the form sends it only when it is filled in, and the invoice page's
+  Details form can add it later to a `manual` invoice that isn't void. What `update` takes depends on source and status:
   provider-owned (`stripe`, `mercury`, `billcom`) invoices take `memo` only,
   and only a `manual` draft takes every field. The invoice page reads those
   rules from the vendored constants above rather than trying a write and

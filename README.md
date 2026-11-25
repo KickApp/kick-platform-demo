@@ -263,7 +263,8 @@ curl -s -X PATCH "http://localhost:4001/api/platform/v1/workspaces/<uuid>/catalo
 curl -s "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoices?status=open&customerIds=<uuid>&startDate=2026-01-01&endDate=2026-12-31"
 
 # Create a draft invoice from a catalog item (status "open" issues it and
-# posts its journal entries; no email is sent either way)
+# posts its journal entries; no email is sent either way). customPaymentLink
+# is optional and can be added later with an update
 curl -s -X POST "http://localhost:4001/api/platform/v1/workspaces/<uuid>/invoices" \
   -H "Content-Type: application/json" \
   -d '{"entityId": "<uuid>", "customerId": "<uuid>", "customPaymentLink": "https://pay.example.com/inv_1", "invoiceDate": "2026-11-20", "dueDate": "2026-12-20", "currency": "usd", "lines": [{"description": "Bookkeeping, November", "quantity": 1, "unitAmount": 650, "catalogItemId": "<uuid>", "tax": 10}]}'
@@ -881,8 +882,9 @@ Kick, imported, synced from Stripe, Mercury, Bill.com or QuickBooks), newest
 first, filtered by entity, status, source and invoice date range.
 
 "Create invoice" bills an existing counterparty. It takes the entity, an
-https payment link (Kick sends no email, so the partner owns delivery and
-payment), the invoice and due dates, an optional number (Kick assigns the
+optional https payment link (Kick sends no email, so the partner owns delivery
+and payment; the link can be added later from the invoice page), the invoice
+and due dates, an optional number (Kick assigns the
 entity's next one otherwise), a memo, the lines, and an invoice-level discount
 and deposit. A line can start from one of the entity's catalog items, which
 fills in its description and default price. A line takes its revenue account
@@ -900,8 +902,9 @@ there depends on where the invoice comes from and its status:
   void or uncollectable; paid back to open; uncollectable to paid or void.
   Paying, voiding and writing off take an optional day.
 - Memo, due date and payment link stay editable after the invoice is issued.
-  The payment link is only editable on invoices created in Kick, and a void
-  invoice keeps only its memo editable.
+  The payment link is only editable on invoices created in Kick. It can also
+  be added to one created without a link. A void invoice keeps only its memo
+  editable.
 - Stripe, Mercury and Bill.com invoices belong to the provider, so the page
   only edits their memo.
 - A draft created in Kick, imported, or created over MCP can be deleted.

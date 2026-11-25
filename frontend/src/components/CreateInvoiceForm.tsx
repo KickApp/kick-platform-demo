@@ -34,8 +34,9 @@ function parseAdjustment(value: string): number | null {
 
 /**
  * Creates an invoice in Kick for an existing counterparty. Kick sends no
- * email, so the partner owns delivery and payment: `customPaymentLink` is
- * where the customer pays. Discount and deposit are offered on the invoice
+ * email, so the partner owns delivery and payment: the optional
+ * `customPaymentLink` is where the customer pays, sent only when filled in
+ * and addable later from the invoice page. Discount and deposit are offered on the invoice
  * only, which keeps the "on the invoice or on its lines, not both" rule from
  * ever being broken. "Create & issue" sends `status: open`, which posts the
  * invoice's journal entries right away.
@@ -79,10 +80,12 @@ export function CreateInvoiceForm({
         (parsedDiscount ?? 0) -
         (parsedDeposit ?? 0);
 
+    const trimmedPaymentLink = customPaymentLink.trim();
     const isSubmittable =
         entityId !== "" &&
         customer !== null &&
-        customPaymentLink.startsWith("https://") &&
+        (trimmedPaymentLink === "" ||
+            trimmedPaymentLink.startsWith("https://")) &&
         invoiceDate !== "" &&
         (dueDate === "" || dueDate >= invoiceDate) &&
         !Number.isNaN(parsedDiscount) &&
@@ -93,8 +96,10 @@ export function CreateInvoiceForm({
     const toBody = (status: CreateStatus): PlatformInvoiceCreateBody => ({
         entityId,
         customerId: customer?.id ?? "",
-        customPaymentLink: customPaymentLink.trim(),
         status,
+        ...(trimmedPaymentLink !== "" && {
+            customPaymentLink: trimmedPaymentLink,
+        }),
         invoiceDate,
         currency: "usd",
         ...(invoiceNumber.trim() !== "" && {
@@ -187,7 +192,7 @@ export function CreateInvoiceForm({
                 </span>
             </label>
             <label className="field">
-                <span className="field-label">Payment link</span>
+                <span className="field-label">Payment link (optional)</span>
                 <input
                     type="url"
                     value={customPaymentLink}
@@ -197,11 +202,11 @@ export function CreateInvoiceForm({
                         setCustomPaymentLink(event.target.value)
                     }
                     placeholder="https://pay.example.com/inv_123"
-                    required
                 />
                 <span className="field-hint">
                     Where the customer pays. Must be https; the invoice
-                    email&apos;s pay button opens it.
+                    email&apos;s pay button opens it. It can be added later from
+                    the invoice page, until the invoice is void.
                 </span>
             </label>
             <div className="field-grid">
